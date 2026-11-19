@@ -1,0 +1,20 @@
+{
+  "name": "@phoenix-2203/cista",
+  "version": "0.1.0",
+  "description": "Cista core: payslip model, field commitments, pay-run fingerprints and selective disclosure.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
