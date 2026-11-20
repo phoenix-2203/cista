@@ -9,7 +9,7 @@ export function Home() {
           <h1>Everyone gets paid. Only you see your payslip.</h1>
           <p className="lede">
             Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 before they leave the employer's browser, one hybrid-signed
-            transaction pays the whole team, and anyone can prove their pay to a lender without handing over the payslip.
+            transaction pays the whole team in fUSD, and anyone can prove their pay to a lender without handing over the payslip.
           </p>
           <div className="row">
             <Link className="btn" href="/employer">Run payroll</Link>
@@ -31,7 +31,7 @@ export function Home() {
         </div>
         <div className="card">
           <h3>3 · Prove one fact</h3>
-          <p>"Net pay is at least ₦250,000", "employed since 2025", "paid by Acme". The employee shows only that, signed for one lender, until a date. The lender checks it here with no wallet.</p>
+          <p>"Net pay is at least $2,500", "employed since 2025", "paid by Acme". The employee shows only that, signed for one lender, until a date. The lender checks it here with no wallet.</p>
         </div>
       </section>
 

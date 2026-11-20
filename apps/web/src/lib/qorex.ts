@@ -65,6 +65,7 @@ function asWalletError(e: unknown): WalletError {
   if (e instanceof WalletError) return e;
   const m = e instanceof Error ? e.message : String(e);
   if (/reject|denied|cancel/i.test(m)) return new WalletError("rejected", "You declined in QoreX.");
+  if (/locked/i.test(m)) return new WalletError("failed", "QoreX is locked. Unlock it (click the QoreX icon in the toolbar), then press the button again.");
   if (/cannot show|cannot display|will not sign|not supported/i.test(m)) {
     return new WalletError("cannot-show", `QoreX won't sign this yet: ${m}`);
   }
