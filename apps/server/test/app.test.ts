@@ -135,6 +135,25 @@ describe("pay runs", () => {
   });
 });
 
+describe("re-sealing", () => {
+  it("lets the employer swap in a re-sealed payslip, and only for an employee in the run", async () => {
+    const s = await setup();
+    await s.upload();
+    const path = (who: string) => `/api/runs/${s.p.signed.runRoot}/envelopes/${who}`;
+    const fresh = envelopeToText(s.p.envelopes[1]!.envelope);
+    expect((await s.call("PUT", path(ada.address), { envelope: fresh }, s.boss)).status).toBe(200);
+    expect((await s.call("PUT", path(thief.address), { envelope: fresh }, s.boss)).status).toBe(404);
+    expect((await s.call("PUT", path(ada.address), { envelope: "qoreseal:AAAA" }, s.boss)).status).toBe(400);
+  });
+
+  it("refuses anyone but the employer", async () => {
+    const s = await setup();
+    await s.upload();
+    const r = await s.call("PUT", `/api/runs/${s.p.signed.runRoot}/envelopes/${ada.address}`, { envelope: envelopeToText(s.p.envelopes[0]!.envelope) }, await s.signIn(ada));
+    expect(r.status).toBe(403);
+  });
+});
+
 describe("payments", () => {
   it("records a payment that matches the signed run", async () => {
     const s = await setup();
