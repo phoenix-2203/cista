@@ -16,9 +16,10 @@ Work in progress for QoreChain's [Build Before Q-Day](https://build.qorechain.io
 
 | Part | State |
 | --- | --- |
-| Core library (`packages/core`) | Built: payslip model, field commitments, pay-run fingerprint, sealing, signatures, payment check, proof of pay. 139 tests |
+| Core library (`packages/core`) | Built: payslip model, field commitments, pay-run fingerprint, sealing, signatures, bank messages, key vault, payment check, proof of pay. 147 tests |
 | Server (`apps/server`) | Built: sign-in, recipient cards, pay runs, payments, employee inbox. 24 tests |
-| Web app | Next: employer pay run, employee inbox, lender check page |
+| Web app (`apps/web`) | Built: key setup, employer pay run, employee payslips and proofs, lender check page. 8 tests, plus a browser check of the verify page |
+| Live on testnet | Next: deploy to cista.duckdns.org and run the first real pay run |
 | `CistaRegistry` contract | Planned: checks the employer's ML-DSA-87 signature on chain |
 | Q-Day attack drill (`audit.md`) | Planned |
 
@@ -50,7 +51,19 @@ pnpm test                       # core library and server tests
 pnpm --filter @cista/server start   # server on http://127.0.0.1:8787
 ```
 
+For the web app in development, run the server with `CISTA_DOMAIN=localhost:5173`, then `pnpm --filter @cista/web dev`. The browser check of the verify page needs Playwright: `pnpm --filter @cista/web build && pnpm --filter @cista/web preview`, then `pnpm --filter @cista/web e2e:verify`.
+
 The server takes `CISTA_PORT`, `CISTA_DB`, `CISTA_DOMAIN`, `CISTA_REST` and `CISTA_CHAIN_ID` from the environment. It needs no keys or secrets: it signs nothing.
+
+## Deploy
+
+On a VPS that already runs Caddy, with Node.js 22.13 or newer and a DuckDNS name pointing at it, run as root:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/phoenix-2203/cista/main/deploy/setup.sh)
+```
+
+It builds the web app, runs the server as a hardened systemd service under its own user, and adds a Caddy site with a strict Content-Security-Policy. Other sites on the server are left alone. Run it again to update.
 
 ## Credits
 
@@ -63,6 +76,7 @@ Open source libraries and QoreChain kits Cista uses:
 | [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
 | [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
 | [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server |
+| [React](https://github.com/facebook/react) and [Vite](https://github.com/vitejs/vite) | MIT | The web app |
 | [Vitest](https://github.com/vitest-dev/vitest) and [TypeScript](https://github.com/microsoft/TypeScript) | MIT, Apache-2.0 | Tests and type checking |
 
 The server's store uses `node:sqlite`, built into Node.js.
