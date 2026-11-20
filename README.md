@@ -52,6 +52,21 @@ pnpm --filter @cista/server start   # server on http://127.0.0.1:8787
 
 The server takes `CISTA_PORT`, `CISTA_DB`, `CISTA_DOMAIN`, `CISTA_REST` and `CISTA_CHAIN_ID` from the environment. It needs no keys or secrets: it signs nothing.
 
+## Credits
+
+Open source libraries and QoreChain kits Cista uses:
+
+| Library | Licence | Used for |
+| --- | --- | --- |
+| [@qorechain/qoreseal](https://github.com/qorechain/qoreseal) | Apache-2.0 | ML-KEM-1024 + X25519 sealing, recipient cards, the KEM key registry |
+| [@qorechain/qoresign](https://github.com/qorechain/qoresign) | Apache-2.0 | Checking hybrid secp256k1 + ML-DSA-87 signatures; reading registered keys |
+| [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
+| [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
+| [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server |
+| [Vitest](https://github.com/vitest-dev/vitest) and [TypeScript](https://github.com/microsoft/TypeScript) | MIT, Apache-2.0 | Tests and type checking |
+
+The server's store uses `node:sqlite`, built into Node.js.
+
 ## Licence
 
 MIT
