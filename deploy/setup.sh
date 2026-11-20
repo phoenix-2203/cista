@@ -44,15 +44,30 @@ chmod -R a+rX "$DIR"
 echo "Starting the Cista server…"
 id cista >/dev/null 2>&1 || useradd --system --home-dir /var/lib/cista --shell /usr/sbin/nologin cista
 install -d -o cista -g cista -m 700 /var/lib/cista
-sed "s/^Environment=CISTA_DOMAIN=.*/Environment=CISTA_DOMAIN=$DOMAIN/" "$DIR/deploy/cista.service" > "$UNIT"
+# Other projects on this server may already use 8787: stop ours, then take the
+# first free port from 8787 up (or the one set in CISTA_PORT).
+systemctl stop cista 2>/dev/null || true
+in_use() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+PORT="${CISTA_PORT:-8787}"
+while in_use "$PORT"; do
+  PORT=$((PORT + 1))
+  [ "$PORT" -le 8899 ] || { echo "No free port between 8787 and 8899. Set one with CISTA_PORT=…"; exit 1; }
+done
+echo "The server will listen on 127.0.0.1:$PORT"
+sed -e "s/^Environment=CISTA_DOMAIN=.*/Environment=CISTA_DOMAIN=$DOMAIN/" \
+    -e "s/^Environment=CISTA_PORT=.*/Environment=CISTA_PORT=$PORT/" "$DIR/deploy/cista.service" > "$UNIT"
 systemctl daemon-reload
-systemctl enable --now cista >/dev/null
+systemctl enable cista >/dev/null 2>&1
 systemctl restart cista
-sleep 2
-curl -fsS http://127.0.0.1:8787/api/health >/dev/null || { echo "The Cista server didn't start. See: journalctl -u cista -n 50"; exit 1; }
+ok=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 1
+  if curl -fsS "http://127.0.0.1:$PORT/api/health" 2>/dev/null | grep -q '"chainId"'; then ok=1; break; fi
+done
+[ -n "$ok" ] || { echo "The Cista server didn't start. Its last log lines:"; journalctl -u cista -n 30 --no-pager; exit 1; }
 
 echo "Configuring Caddy for https://$DOMAIN …"
-sed "s/^cista\.duckdns\.org {/$DOMAIN {/" "$DIR/deploy/Caddyfile" > "$SITE"
+sed -e "s/^cista\.duckdns\.org {/$DOMAIN {/" -e "s/127\.0\.0\.1:8787/127.0.0.1:$PORT/" "$DIR/deploy/Caddyfile" > "$SITE"
 cp "$MAIN" "$MAIN.bak-cista"
 grep -qxF "import $SITE" "$MAIN" || printf '\nimport %s\n' "$SITE" >> "$MAIN"
 if ! caddy validate --config "$MAIN" --adapter caddyfile >/dev/null 2>&1; then
