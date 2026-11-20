@@ -24,7 +24,7 @@ No AI service is called at runtime. Cista has no model and no API key.
 
 ## How the AI's work is checked
 
-- **Tests and types on every change:** `pnpm test` and type checks before each commit (163 tests so far).
+- **Tests and types on every change:** `pnpm test` and type checks before each commit (195 tests so far, plus a browser check of the verify page).
 - **Independent test vectors:** the pinned commitment and Merkle root values were recomputed in Python, separately from the TypeScript code.
 - **Attacks in the tests, not just happy paths:** a one-kobo change, fields spliced from another payslip, envelopes filed under the wrong employee, classical-only signatures (what a stolen ECDSA key can make), forged signers, payments that pay less than signed.
 - **Small, reviewable commits**, pushed one by one, at the human's request.
