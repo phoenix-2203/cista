@@ -1,120 +1,127 @@
 /**
- * One-time setup of the sealing key, for employees and employers alike:
- * 1. make the key here and lock it with a password (and download the backup),
- * 2. register its ML-KEM-1024 half on chain (QoreX signs, hybrid),
- * 3. sign and publish the recipient card with its X25519 half.
+ * The sealing key, for employees and employers alike: make it (and write down
+ * its recovery phrase), unlock it, recover it, or start over; then publish
+ * the key card.
  */
 import { useEffect, useState } from "react";
 import type { Vault } from "@phoenix-2203/cista";
-import { NeedsKeyStatus } from "./SetupStatus";
 import { Notice, SignInCard, useAction } from "../components";
-import { createKeys, downloadVault, savedVault, unlockKeys, unlockedKeys } from "../lib/keys";
+import { createKeys, lockKeys, restoreKeys, savedVault, unlockedKeys } from "../lib/keys";
 import { useSession } from "../lib/useSession";
+import { PhraseView, RecoverForm, UnlockForm } from "./KeyForms";
+import { NeedsKeyStatus } from "./SetupStatus";
+
+type Mode = "auto" | "forgot" | "new" | "phrase" | "recovered";
 
 export function Setup() {
   const session = useSession();
-  const [, rerender] = useState(0);
   if (!session) return <SignInCard why="Your Cista key belongs to your QoreChain account." />;
-  const address = session.address;
-  const keys = unlockedKeys(address);
-
   return (
     <>
       <h1>Your Cista key</h1>
       <p className="muted">
-        Payslips are sealed to this key with ML-KEM-1024, so only you (and your employer, who made the payslip) can open them.
-        It's made in this browser and never sent anywhere unlocked.
+        Payslips are sealed to this key with ML-KEM-1024 and X25519, so only you (and your employer, who made the payslip) can open them.
+        It's made in this browser and never leaves it unlocked.
       </p>
-      {keys ? <NeedsKeyStatus address={address} keys={keys} /> : <MakeOrUnlock address={address} onDone={() => rerender((n) => n + 1)} />}
+      <KeyDesk key={session.address} address={session.address} />
     </>
   );
 }
 
-function MakeOrUnlock({ address, onDone }: { address: string; onDone: () => void }) {
+function KeyDesk({ address }: { address: string }) {
+  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(location.search).has("forgot") ? "forgot" : "auto"));
+  const [made, setMade] = useState<{ phrase: string; vault: Vault } | null>(null);
+  const [matches, setMatches] = useState<boolean | null>(null);
   const [vault, setVault] = useState<Vault | null>(() => savedVault(address));
-  const [password, setPassword] = useState("");
-  const [repeat, setRepeat] = useState("");
-  const [made, setMade] = useState<Vault | null>(null);
-  const { busy, error, setError, run } = useAction();
+  const [, rerender] = useState(0);
+  const refresh = () => rerender((n) => n + 1);
 
-  useEffect(() => setVault(savedVault(address)), [address]);
+  useEffect(() => {
+    void restoreKeys(address).then(refresh);
+    const on = () => refresh();
+    window.addEventListener("cista:keys", on);
+    return () => window.removeEventListener("cista:keys", on);
+  }, [address]);
 
-  if (made) {
+  const keys = unlockedKeys(address);
+
+  if (mode === "phrase" && made) return <PhraseView phrase={made.phrase} vault={made.vault} onDone={() => { setMade(null); setMode("auto"); }} />;
+  if (mode === "forgot") {
     return (
-      <div className="card">
-        <h3>Back up your key</h3>
-        <p>Download the backup file and keep it with your password. Without both, payslips sealed to this key can't be opened (your employer can re-seal them to a new key).</p>
-        <div className="row">
-          <button className="btn" onClick={() => downloadVault(made)}>Download backup</button>
-          <button className="btn ghost" onClick={onDone}>I've saved it, continue</button>
-        </div>
-      </div>
+      <RecoverForm
+        address={address}
+        onCancel={() => setMode("auto")}
+        onStartOver={() => setMode("new")}
+        onDone={(m) => { setMatches(m); setVault(savedVault(address)); setMode("recovered"); }}
+      />
     );
   }
-
-  const importFile = async (file: File) => {
-    try {
-      const v = JSON.parse(await file.text()) as Vault;
-      if (v.address !== address) throw new Error(`that backup belongs to ${v.address}`);
-      setVault(v);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "that file is not a Cista key backup");
-    }
-  };
-
-  if (vault) {
+  if (mode === "new" || (!vault && !keys)) {
+    return <MakeKey address={address} replacing={Boolean(vault)} onMade={(m) => { setMade(m); setVault(m.vault); setMode("phrase"); }} onCancel={vault ? () => setMode("auto") : undefined} />;
+  }
+  if (!keys) {
     return (
       <div className="card">
         <h3>Unlock your key</h3>
-        {error && <Notice kind="bad">{error}</Notice>}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(async () => {
-              await unlockKeys(address, password, vault);
-              onDone();
-            });
-          }}
-        >
-          <div className="field">
-            <label htmlFor="pw">Password</label>
-            <input id="pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <button className="btn" disabled={busy || !password}>{busy ? "Unlocking…" : "Unlock"}</button>
-        </form>
+        <UnlockForm address={address} vault={vault} onDone={refresh} onForgot={() => setMode("forgot")} />
       </div>
     );
   }
-
   return (
-    <div className="grid">
-      <div className="card">
-        <h3>Make a new key</h3>
-        {error && <Notice kind="bad">{error}</Notice>}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (password !== repeat) return setError("the two passwords differ");
-            void run(async () => setMade(await createKeys(address, password)));
-          }}
-        >
+    <>
+      {mode === "recovered" && matches === true && <Notice kind="ok">Key recovered. It's the same key as before, so all your payslips open.</Notice>}
+      {mode === "recovered" && matches === false && (
+        <Notice kind="bad">
+          That phrase makes a different key from the one you published. If you have the right phrase, recover again with it. Otherwise, publish
+          this key below and ask your employer to re-seal your past payslips.
+        </Notice>
+      )}
+      <NeedsKeyStatus address={address} keys={keys} />
+      <div className="row">
+        <button className="btn ghost small" onClick={() => lockKeys(address)}>Lock now</button>
+        <button className="btn ghost small" onClick={() => setMode("new")}>Start over with a new key</button>
+      </div>
+    </>
+  );
+}
+
+function MakeKey({ address, replacing, onMade, onCancel }: { address: string; replacing: boolean; onMade: (m: { phrase: string; vault: Vault }) => void; onCancel?: () => void }) {
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const { busy, error, setError, run } = useAction();
+  return (
+    <div className="card">
+      <h3>{replacing ? "Start over with a new key" : "Make your key"}</h3>
+      {replacing && (
+        <Notice kind="bad">
+          A new key can't open payslips sealed to your old one. Use this only if you've lost both your password and your recovery phrase; your
+          employer can then re-seal your past payslips to the new key.
+        </Notice>
+      )}
+      <p>Choose a password to unlock the key in this browser. Next you'll get a 24-word recovery phrase in case you forget it.</p>
+      {error && <Notice kind="bad">{error}</Notice>}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pw !== pw2) return setError("the two passwords differ");
+          void run(async () => onMade(await createKeys(address, pw)));
+        }}
+      >
+        <div className="grid">
           <div className="field">
             <label htmlFor="pw1">Password <span className="hint">at least 10 characters</span></label>
-            <input id="pw1" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input id="pw1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="pw2">Same password again</label>
-            <input id="pw2" type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} />
+            <input id="pw2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           </div>
-          <button className="btn" disabled={busy || password.length < 10}>{busy ? "Making the key…" : "Make my key"}</button>
-        </form>
-      </div>
-      <div className="card">
-        <h3>Use a backup</h3>
-        <p>Set up on another browser already? Load the backup file you downloaded there.</p>
-        <input type="file" accept="application/json,.json" onChange={(e) => e.target.files?.[0] && void importFile(e.target.files[0])} />
-      </div>
+        </div>
+        <div className="row">
+          <button className="btn" disabled={busy || pw.length < 10}>{busy ? "Making the key…" : replacing ? "Make a new key" : "Make my key"}</button>
+          {onCancel && <button type="button" className="btn ghost small" onClick={onCancel}>Cancel</button>}
+        </div>
+      </form>
     </div>
   );
 }
