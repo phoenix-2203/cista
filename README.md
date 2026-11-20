@@ -6,7 +6,7 @@ Sealed payroll on QoreChain: everyone gets paid, only you see your payslip.
 
 Cista runs payroll on the QoreChain testnet (`qorechain-diana`):
 
-- **Sealed payslips.** Each payslip is sealed in the browser with ML-KEM-1024 (QoreSeal) to the employee's key in QoreChain's PQC registry. The server stores ciphertext only.
+- **Sealed payslips.** Each payslip is sealed in the browser with ML-KEM-1024 (QoreSeal) to the employee's key, which the employee vouched for with a key card signed by their ML-DSA-87 key registered on chain. The server stores ciphertext only.
 - **One payment, one fingerprint.** A single hybrid-signed (secp256k1 + ML-DSA-87) transaction pays the whole team and carries the pay run's fingerprint in its memo.
 - **Proof of pay, without the payslip.** An employee can show a lender one fact (net pay, employer, "salary above ₦X") and keep the rest sealed. The lender checks it without a wallet.
 
@@ -36,6 +36,8 @@ slip roots     ─────────────────────�
 4. **One transaction pays the team**, hybrid-signed, with `cista:v1:<run root>` in its memo. The server only records it once the chain shows it pays exactly the signed total, from the employer, with the employer's ML-DSA-87 signature verified.
 5. **The employee opens their payslip** and checks it against the signed run root.
 6. **Proof of pay.** The employee picks fields to show and signs a short statement naming who the proof is for and when it expires. A lender checks, with no wallet: the fields come from the payslip unchanged, the employee and the employer signed with their registered ML-DSA-87 keys, the run was paid on chain, and (if shown) the payout reached the employee.
+
+**Keys.** Each person makes their sealing keys in the browser (locked with a password, with a backup file) and publishes a key card: their ML-KEM-1024 key's SHA3-256 and their X25519 key, signed in QoreX. An employer only seals to keys whose card verifies against the employee's ML-DSA-87 key registered on chain, so a server that swaps in its own key is caught. We meant to register the ML-KEM key in the chain's KEM registry too, but QoreX refuses `MsgRegisterKEMKey` from websites ("managed by the wallet itself"), so the signed card carries it instead; Cista still falls back to a registry key when an account has one and no card.
 
 Every signature is checked against the key registered on chain, never a key the signature brings along. A signature with only the classical (secp256k1) part is refused: that is the part a quantum computer could forge.
 
@@ -71,7 +73,7 @@ Open source libraries and QoreChain kits Cista uses:
 
 | Library | Licence | Used for |
 | --- | --- | --- |
-| [@qorechain/qoreseal](https://github.com/qorechain/qoreseal) | Apache-2.0 | ML-KEM-1024 + X25519 sealing, recipient cards, the KEM key registry |
+| [@qorechain/qoreseal](https://github.com/qorechain/qoreseal) | Apache-2.0 | ML-KEM-1024 + X25519 sealing and signed recipient (key) cards |
 | [@qorechain/qoresign](https://github.com/qorechain/qoresign) | Apache-2.0 | Checking hybrid secp256k1 + ML-DSA-87 signatures; reading registered keys |
 | [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
 | [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
