@@ -4,3 +4,8 @@ export * from "./commit";
 export * from "./merkle";
 export * from "./run";
 export * from "./disclose";
+export * from "./codec";
+export * from "./seal";
+export * from "./sign";
+export * from "./payment";
+export * from "./verify";
