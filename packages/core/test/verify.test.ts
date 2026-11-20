@@ -76,7 +76,7 @@ describe("verifyProofBundle", () => {
     const v = await verifyProofBundle(bundle, chain, NOW);
     expect(v.ok).toBe(true);
     expect(v.checks.map((c) => [c.id, c.ok])).toEqual([["fields", true], ["employee", true], ["employer", true], ["same-run", true], ["payment", true]]);
-    expect(v.fields).toEqual({ "employer.name": "Acme Logistics Ltd", "employee.address": ada.address, "net.atLeast.25000000": "yes" });
+    expect(v.fields).toEqual({ "employer.name": "Acme Logistics Ltd", "employee.address": ada.address, currency: "NGN", "net.atLeast.25000000": "yes" });
     expect(v.employee).toBe(ada.address);
   });
 

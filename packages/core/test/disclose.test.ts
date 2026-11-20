@@ -20,7 +20,7 @@ function run() {
 const clone = (d: Disclosure): Disclosure => JSON.parse(JSON.stringify(d));
 
 describe("createDisclosure + checkDisclosure", () => {
-  it("reveals only the chosen fields, plus whose payslip it is", () => {
+  it("reveals only the chosen fields, plus whose payslip it is and its currency", () => {
     const r = run();
     const d = createDisclosure(r, r.slips[0]!, ["employer.name", "net.atLeast.25000000"]);
     const checked = checkDisclosure(d);
@@ -28,6 +28,7 @@ describe("createDisclosure + checkDisclosure", () => {
     expect(checked.fields).toEqual({
       "employer.name": "Acme Logistics Ltd",
       "employee.address": ADDR.ada,
+      currency: "NGN",
       "net.atLeast.25000000": "yes",
     });
     expect(checked.runRoot).toEqual(r.runRoot);
@@ -62,6 +63,7 @@ describe("createDisclosure + checkDisclosure", () => {
   tamper("another run root", (d) => (d.runRoot = "ab".repeat(32)));
   tamper("a broken payslip proof", (d) => (d.slipSiblings[0] = "cd".repeat(32)));
   tamper("the employee address left out", (d) => (d.fields = d.fields.filter((f) => f.name !== "employee.address")));
+  tamper("the currency left out", (d) => (d.fields = d.fields.filter((f) => f.name !== "currency")));
   tamper("a field revealed twice", (d) => d.fields.push({ ...d.fields[0]! }));
   tamper("uppercase hex", (d) => (d.runRoot = d.runRoot.toUpperCase()));
   tamper("a version change", (d) => ((d as { v: number }).v = 2));
@@ -101,7 +103,7 @@ describe("proofStatement", () => {
       "Chain: qorechain-diana",
       "For: Zenith Lending, application 4471",
       "Expires: 2026-12-31T00:00:00.000Z",
-      "Shows: employee.address, net",
+      "Shows: employee.address, currency, net",
       `Proof: ${toHex(disclosureDigest(d))}`,
     ]);
   });

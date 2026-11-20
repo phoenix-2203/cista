@@ -6,7 +6,8 @@
  * root. A checker rebuilds the run root from those pieces alone. Unrevealed
  * fields appear only as hashes inside the proofs.
  *
- * `employee.address` is always revealed, so the disclosure says whose payslip
+ * `employee.address` and `currency` are always revealed: whose payslip it is,
+ * and what the amounts are in. The address
  * it is, and the employee's own signature over it (see `proofStatement`) shows
  * the holder is that employee. The statement names who the proof is for and
  * when it expires, so a lender cannot pass it on as fresh.
@@ -18,7 +19,7 @@ import { merkleProof, rootFromProof, type MerkleProof } from "./merkle";
 import { slipRootOf, type BuiltSlip, type PayRun } from "./run";
 
 export const DISCLOSURE_VERSION = 1 as const;
-export const REQUIRED_FIELDS = ["employee.address"] as const;
+export const REQUIRED_FIELDS = ["employee.address", "currency"] as const;
 
 export interface RevealedField {
   name: string;
