@@ -1,0 +1,30 @@
+{
+  "name": "@cista/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cista's web app: run payroll, read your payslip, check a proof of pay.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@phoenix-2203/cista": "workspace:*",
+    "@qorechain/qoreseal": "^0.1.0",
+    "@qorechain/qoresign": "^0.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}
