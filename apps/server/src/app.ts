@@ -131,25 +131,33 @@ export function createApp(cfg: AppConfig): Hono<Env> {
 
   // --- Recipient cards (public X25519 keys, signed by the account) -----------
 
+  // A card holds the account's ML-KEM-1024 and X25519 public keys. The card
+  // names the ML-KEM key by its SHA3-256 and is signed (hybrid) by the account,
+  // so anyone can check it against the account's registered ML-DSA-87 key.
+  // QoreX does not let websites register an ML-KEM key in the chain's KEM
+  // registry (it keeps MsgRegisterKEMKey for the wallet itself), so the full
+  // ML-KEM key travels with the signed card instead.
   app.get("/api/cards/:address", (c) => {
-    const card = store.getCard(c.req.param("address"));
-    if (!card) throw new HttpError(404, "no recipient card for this address");
-    return c.json({ card });
+    const entry = store.getCard(c.req.param("address")) as { card: RecipientCard; mlkemPublicKey: string } | undefined;
+    if (!entry) throw new HttpError(404, "no key card for this address");
+    return c.json(entry);
   });
 
   app.post("/api/cards", async (c) => {
     const me = signedIn(c);
-    const { card } = await json<{ card?: RecipientCard }>(c);
+    const { card, mlkemPublicKey } = await json<{ card?: RecipientCard; mlkemPublicKey?: string }>(c);
     if (!card || card.address !== me) throw new HttpError(403, "you can only publish your own card");
     if (card.chainId !== cfg.chainId) throw new HttpError(400, `the card is for ${card.chainId}, not ${cfg.chainId}`);
-    const [pq, kem] = await Promise.all([pqKeyOf(me), chain.kemKey(me)]);
-    if (!kem) throw new HttpError(403, "register your ML-KEM-1024 key on chain first");
+    if (typeof mlkemPublicKey !== "string" || !/^[0-9a-f]{3136}$/.test(mlkemPublicKey)) {
+      throw new HttpError(400, "mlkemPublicKey must be the 1,568-byte ML-KEM-1024 key in lowercase hex");
+    }
+    const pq = await pqKeyOf(me);
     try {
-      verifyRecipientCard({ card, chainId: cfg.chainId, address: me, pqPublicKey: pq.publicKey, mlkemPublicKey: kem });
+      verifyRecipientCard({ card, chainId: cfg.chainId, address: me, pqPublicKey: pq.publicKey, mlkemPublicKey: Buffer.from(mlkemPublicKey, "hex") });
     } catch (e) {
       throw new HttpError(400, `the card does not check out: ${(e as Error).message}`);
     }
-    store.putCard(me, card);
+    store.putCard(me, { card, mlkemPublicKey });
     return c.json({ ok: true });
   });
 
