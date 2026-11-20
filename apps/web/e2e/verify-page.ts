@@ -18,6 +18,7 @@ const { chromium } = createRequire(import.meta.url)("playwright") as typeof impo
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:4173";
 const CHAIN = "qorechain-diana";
+const FUSD = "erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA";
 const rnd = (n: number) => crypto.getRandomValues(new Uint8Array(n));
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
 
@@ -34,17 +35,17 @@ const slip = {
   version: 1 as const,
   employer: { address: employer.address, name: "Acme Logistics Ltd" },
   employee: { address: ada.address, name: "Ada Obi", staffId: "ACM-0042", role: "Operations Analyst", employedSince: "2025-03-01" },
-  period: "2026-11", payDate: "2026-11-28", currency: "NGN",
-  earnings: [{ code: "basic", label: "Basic salary", amount: 48_000_000n }],
-  deductions: [{ code: "paye", label: "PAYE tax", amount: 9_790_000n }],
+  period: "2026-11", payDate: "2026-11-28", currency: "USD",
+  earnings: [{ code: "basic", label: "Basic salary", amount: 345_000n }],
+  deductions: [{ code: "tax", label: "Income tax", amount: 65_950n }],
   employerContributions: [],
-  payout: { address: ada.address, denom: "uqor", amount: 382_100_000n },
-  thresholds: [25_000_000n],
+  payout: { address: ada.address, denom: FUSD, amount: 2_790_500_000n },
+  thresholds: [250_000n, 300_000n],
 };
 const run = buildPayRun(CHAIN, [{ slip, seed: fromHex("01".repeat(32)) }]);
 const body = unsignedRun(run);
 const signedRun = { ...body, signature: employer.sign(signedRunStatement(body)) };
-const disclosure = createDisclosure(run, run.slips[0]!, ["employer.name", "net.atLeast.25000000"]);
+const disclosure = createDisclosure(run, run.slips[0]!, ["employer.name", "period", "net.atLeast.250000", "net.atLeast.300000"]);
 const terms = { audience: "Zenith Lending, application 4471", expires: "2030-01-01T00:00:00.000Z" };
 const HASH = "AB".repeat(32);
 const bundle: ProofBundle = { v: 1, proof: { disclosure, terms, signature: ada.sign(proofStatement(disclosure, terms)) }, run: signedRun, paymentTx: HASH };
@@ -54,7 +55,7 @@ tamperedDisclosure.fields.find((f: { name: string }) => f.name === "employer.nam
 const tampered = { ...bundle, proof: { ...bundle.proof, disclosure: tamperedDisclosure } };
 
 const tx = {
-  tx: { body: { memo: runMemo(run.runRoot), messages: [{ "@type": "/cosmos.bank.v1beta1.MsgSend", from_address: employer.address, to_address: ada.address, amount: [{ denom: "uqor", amount: "382100000" }] }] } },
+  tx: { body: { memo: runMemo(run.runRoot), messages: [{ "@type": "/cosmos.bank.v1beta1.MsgSend", from_address: employer.address, to_address: ada.address, amount: [{ denom: FUSD, amount: "2790500000" }] }] } },
   tx_response: { txhash: HASH, height: "10500000", timestamp: "2026-11-28T09:00:00Z", code: 0, events: [{ type: "pqc_hybrid_verify", attributes: [{ key: "address", value: employer.address }, { key: "status", value: "verified" }] }] },
 };
 
@@ -76,8 +77,8 @@ await page.goto(`${BASE}/verify#${encodeProofBundle(bundle)}`);
 await page.getByText("This proof checks out").waitFor({ timeout: 15000 });
 const text = await page.locator("main").innerText();
 expect(text.includes("Acme Logistics Ltd"), "honest proof: shows the employer the employee chose to show");
-expect(text.includes("Net pay is at least ₦250,000.00"), "honest proof: shows the pay band");
-expect(!text.includes("Ada Obi") && !text.includes("382,100") && !text.includes("Operations Analyst"), "honest proof: name, amount and role stay hidden");
+expect(text.includes("Net pay for 2026-11 was at least $2,500.00 and less than $3,000.00."), "honest proof: states the pay range in one sentence");
+expect(!text.includes("Ada Obi") && !text.includes("2,790") && !text.includes("Operations Analyst"), "honest proof: name, amount and role stay hidden");
 expect((await page.locator(".checks li.ok").count()) === 5, "honest proof: all five checks pass");
 await page.screenshot({ path: process.env.SHOT ?? "verify-ok.png", fullPage: true });
 
