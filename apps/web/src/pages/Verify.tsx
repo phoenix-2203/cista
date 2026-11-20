@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { decodeProofBundle, verifyProofBundle, type Verdict } from "@phoenix-2203/cista";
 import { errorText, Notice, short } from "../components";
 import { chain, EXPLORER_TX } from "../lib/chain";
-import { fieldName, fieldValue } from "../lib/fields";
+import { claims, fieldName, fieldValue } from "../lib/fields";
 
 export function Verify() {
   const [text, setText] = useState(() => decodeURIComponent(location.hash.slice(1)));
@@ -57,20 +57,27 @@ export function Verify() {
   );
 }
 
+const HIDDEN = new Set(["employee.address", "employer.address", "currency", "period", "version"]);
+
 function VerdictView({ verdict, onReset }: { verdict: Verdict; onReset: () => void }) {
   const fields = verdict.fields ?? {};
-  const shown = Object.keys(fields).filter((n) => n !== "employee.address");
+  const shown = Object.keys(fields).filter((n) => !HIDDEN.has(n));
   return (
     <>
-      <div className={`card`} style={{ borderColor: verdict.ok ? "var(--ok)" : "var(--bad)", borderWidth: 2 }}>
+      <div className="card" style={{ borderColor: verdict.ok ? "var(--ok)" : "var(--bad)", borderWidth: 2 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h2 style={{ margin: 0 }}>{verdict.ok ? "This proof checks out" : "This proof does not check out"}</h2>
           <span className={`pill ${verdict.ok ? "ok" : "bad"}`}>{verdict.ok ? "Verified" : "Refused"}</span>
         </div>
         {verdict.ok && (
-          <p className="muted" style={{ marginTop: "0.6rem" }}>
-            For <strong>{verdict.audience}</strong>, valid until {new Date(verdict.expires!).toUTCString()}.
-          </p>
+          <>
+            <ul className="claims">
+              {claims({ ...fields, period: verdict.period ?? fields.period ?? "" }).map((c) => <li key={c}>{c}</li>)}
+            </ul>
+            <p className="small" style={{ marginTop: "0.8rem" }}>
+              Made for <strong>{verdict.audience}</strong>, valid until {new Date(verdict.expires!).toUTCString()}. If that isn't you, don't rely on it.
+            </p>
+          </>
         )}
       </div>
 
@@ -79,7 +86,7 @@ function VerdictView({ verdict, onReset }: { verdict: Verdict; onReset: () => vo
           <header>
             <div>
               <h3 style={{ margin: 0 }}>What the employee chose to show</h3>
-              <span className="small muted">Everything else on the payslip stays sealed.</span>
+              <span className="small muted">Everything else on the payslip stays sealed. Amounts are in {fields.currency}.</span>
             </div>
           </header>
           <table>
@@ -88,7 +95,7 @@ function VerdictView({ verdict, onReset }: { verdict: Verdict; onReset: () => vo
               <tr><td>Employer's account</td><td className="hash">{verdict.employer}</td></tr>
               <tr><td>Pay period</td><td>{verdict.period}</td></tr>
               {shown.map((n) => (
-                <tr key={n}><td>{fieldName(n)}</td><td><strong>{fieldValue(n, fields[n]!)}</strong></td></tr>
+                <tr key={n}><td>{fieldName(n, fields.currency)}</td><td><strong>{fieldValue(n, fields[n]!, fields)}</strong></td></tr>
               ))}
             </tbody>
           </table>

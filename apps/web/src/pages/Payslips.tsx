@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { fromHex, grossPay, netPay, openPayslip, totalDeductions, type OpenedPayslip, type SignedRun } from "@phoenix-2203/cista";
 import { envelopeFromText } from "@qorechain/qoreseal";
-import { money, NeedsKey, Notice, qor, short, useAction } from "../components";
+import { money, NeedsKey, Notice, payout, short, useAction } from "../components";
 import { api, type StoredRun } from "../lib/api";
 import { CHAIN_ID } from "../lib/qorex";
 import { unlockedKeys } from "../lib/keys";
@@ -129,7 +129,7 @@ function PayslipView({ entry }: { entry: InboxEntry }) {
         </tbody>
       </table>
       <p className="small muted" style={{ marginTop: "1rem" }}>
-        Paid {qor(s.payout.amount)} to {short(s.payout.address)}. This payslip matches the pay run {short(entry.run.runRoot)} your employer signed with ML-DSA-87.
+        Paid {payout(s.payout.amount, s.payout.denom)} to {short(s.payout.address)}. This payslip matches the pay run {short(entry.run.runRoot)} your employer signed with ML-DSA-87.
       </p>
     </div>
   );
