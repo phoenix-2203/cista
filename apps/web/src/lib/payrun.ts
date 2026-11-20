@@ -5,6 +5,7 @@
  */
 import {
   buildPayRun,
+  fromHex,
   multiSendMessages,
   payRunGas,
   randomSeed,
@@ -31,20 +32,28 @@ export interface ResolvedRecipient {
 
 export class NotReady extends Error {}
 
-/** The keys an employee has published, checked against the chain. */
+/**
+ * The keys an employee has published, checked: their key card must be signed
+ * by their ML-DSA-87 key registered on chain and name the ML-KEM key it comes
+ * with. Without a card, an ML-KEM key in the chain's KEM registry is used alone.
+ */
 export async function resolveRecipient(address: string): Promise<ResolvedRecipient> {
-  const [kem, pq] = await Promise.all([kemKeyOf(address), pqKeyOf(address)]);
+  const pq = await pqKeyOf(address);
   if (!pq) throw new NotReady("has no post-quantum signing key registered yet (they need to use QoreX once)");
-  if (!kem) throw new NotReady("hasn't set up a Cista key yet: send them to the Set up page");
   try {
-    const card = await api.card(address);
-    const recipient = verifyRecipientCard({ card, chainId: CHAIN_ID, address, pqPublicKey: pq.publicKey, mlkemPublicKey: kem });
-    return { address, recipient, mode: "hybrid" };
+    const { card, mlkemPublicKey } = await api.card(address);
+    try {
+      const recipient = verifyRecipientCard({ card, chainId: CHAIN_ID, address, pqPublicKey: pq.publicKey, mlkemPublicKey: fromHex(mlkemPublicKey) });
+      return { address, recipient, mode: "hybrid" };
+    } catch {
+      throw new NotReady("has a key card that doesn't check out against their registered key; ask them to publish it again on My key");
+    }
   } catch (e) {
-    if (e instanceof ApiError && e.status !== 404) throw e;
-    // No card, or one for an older key: seal with the registered ML-KEM-1024 key alone.
-    return { address, recipient: { mlkemPublicKey: kem }, mode: "mlkem" };
+    if (!(e instanceof ApiError && e.status === 404)) throw e;
   }
+  const kem = await kemKeyOf(address);
+  if (kem) return { address, recipient: { mlkemPublicKey: kem }, mode: "mlkem" };
+  throw new NotReady("hasn't set up a Cista key yet: send them to the My key page");
 }
 
 export function buildRun(payslips: Payslip[]): PayRun {
