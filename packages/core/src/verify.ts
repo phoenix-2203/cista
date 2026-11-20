@@ -103,7 +103,7 @@ export async function verifyProofBundle(bundle: ProofBundle, chain: ChainReader,
   // 4: the proof and the signed run are the same run.
   const d = proof.disclosure;
   const same = d.runRoot === run.runRoot && d.employer === run.employer && d.period === run.period && d.chainId === run.chainId;
-  add("same-run", same, same ? `Same pay run: ${run.period}, ${run.count} payslips.` : "The proof is from a different pay run than the one the employer signed.");
+  add("same-run", same, same ? `Same pay run: ${run.period}, ${run.count} ${run.count === 1 ? "payslip" : "payslips"}.` : "The proof is from a different pay run than the one the employer signed.");
   if (!same) return done();
 
   // 5: the chain paid that run.
