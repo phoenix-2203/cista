@@ -63,7 +63,7 @@ On a VPS that already runs Caddy, with Node.js 22.13 or newer and a DuckDNS name
 bash <(curl -fsSL https://raw.githubusercontent.com/phoenix-2203/cista/main/deploy/setup.sh)
 ```
 
-It builds the web app, runs the server as a hardened systemd service under its own user, and adds a Caddy site with a strict Content-Security-Policy. Other sites on the server are left alone. Run it again to update.
+It builds the web app, runs the server as a hardened systemd service under its own user (on the first free port from 8787, or `CISTA_PORT`), and adds a Caddy site with a strict Content-Security-Policy. Other sites on the server are left alone. Run it again to update.
 
 ## Credits
 
