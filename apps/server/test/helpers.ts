@@ -23,6 +23,7 @@ export function account() {
     sealKeys,
     sign: (text: string, pq = true) => signMessage({ chainId: CHAIN, signer: address, data: text, classicalKey, pqKey: pq ? pqKey : undefined }),
     card: () => signRecipientCard({ chainId: CHAIN, address, keys: sealKeys, classicalKey, pqKey }),
+    mlkemHex: () => Buffer.from(sealKeys.mlkemPublicKey).toString("hex"),
   };
 }
 export type Account = ReturnType<typeof account>;
@@ -30,12 +31,10 @@ export type Account = ReturnType<typeof account>;
 export function world() {
   const store = new Store();
   const pq = new Map<string, Uint8Array>();
-  const kem = new Map<string, Uint8Array>();
   const txs = new Map<string, PaymentTx>();
-  const register = (...as: Account[]) => as.forEach((a) => { pq.set(a.address, a.pqKey.publicKey); kem.set(a.address, a.sealKeys.mlkemPublicKey); });
+  const register = (...as: Account[]) => as.forEach((a) => pq.set(a.address, a.pqKey.publicKey));
   const chain: ServerChain = {
     pqKey: async (a) => (pq.has(a) ? { publicKey: pq.get(a)!, possessionProven: true } : null),
-    kemKey: async (a) => kem.get(a) ?? null,
     paymentTx: async (h) => txs.get(h.toUpperCase()) ?? null,
   };
   let clock = Date.parse("2026-11-28T09:00:00Z");
@@ -52,7 +51,7 @@ export function world() {
     const r = await call("POST", "/api/auth/verify", { address: a.address, nonce: n.nonce, issuedAt: n.issuedAt, signature: a.sign(statement) });
     return ((await r.json()) as { token: string }).token;
   };
-  return { store, pq, kem, txs, register, chain, app, call, signIn, tick: (ms: number) => (clock += ms) };
+  return { store, pq, txs, register, chain, app, call, signIn, tick: (ms: number) => (clock += ms) };
 }
 
 export function slipFor(employer: Account, employee: Account, amount: bigint): Payslip {

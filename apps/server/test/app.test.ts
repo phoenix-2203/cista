@@ -162,21 +162,36 @@ describe("payments", () => {
   });
 });
 
-describe("recipient cards", () => {
-  it("publishes a card that matches the keys on chain", async () => {
+describe("key cards", () => {
+  it("publishes a card signed with the registered ML-DSA-87 key, with its ML-KEM key", async () => {
     const w = world();
     w.register(ada);
     const token = await w.signIn(ada);
-    expect((await w.call("POST", "/api/cards", { card: ada.card() }, token)).status).toBe(200);
-    expect((await w.call("GET", `/api/cards/${ada.address}`)).status).toBe(200);
+    expect((await w.call("POST", "/api/cards", { card: ada.card(), mlkemPublicKey: ada.mlkemHex() }, token)).status).toBe(200);
+    const got = (await (await w.call("GET", `/api/cards/${ada.address}`)).json()) as { mlkemPublicKey: string };
+    expect(got.mlkemPublicKey).toBe(ada.mlkemHex());
   });
 
-  it("refuses someone else's card, and a card whose ML-KEM key is not the registered one", async () => {
+  it("refuses someone else's card", async () => {
     const w = world();
     w.register(ada, thief);
     const token = await w.signIn(thief);
-    expect((await w.call("POST", "/api/cards", { card: ada.card() }, token)).status).toBe(403);
-    w.kem.set(thief.address, ada.sealKeys.mlkemPublicKey);
-    expect((await w.call("POST", "/api/cards", { card: thief.card() }, token)).status).toBe(400);
+    expect((await w.call("POST", "/api/cards", { card: ada.card(), mlkemPublicKey: ada.mlkemHex() }, token)).status).toBe(403);
+  });
+
+  it("refuses a card with a swapped ML-KEM key (a server or thief trying to read payslips)", async () => {
+    const w = world();
+    w.register(ada, thief);
+    const token = await w.signIn(ada);
+    expect((await w.call("POST", "/api/cards", { card: ada.card(), mlkemPublicKey: thief.mlkemHex() }, token)).status).toBe(400);
+  });
+
+  it("refuses a card not signed with the account's registered ML-DSA-87 key", async () => {
+    // Signed in as Ada with her real key, then the registry shows another key: the card must fail.
+    const w2 = world();
+    w2.register(ada);
+    const t2 = await w2.signIn(ada);
+    w2.pq.set(ada.address, thief.pqKey.publicKey);
+    expect((await w2.call("POST", "/api/cards", { card: ada.card(), mlkemPublicKey: ada.mlkemHex() }, t2)).status).toBe(400);
   });
 });
