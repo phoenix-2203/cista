@@ -109,6 +109,12 @@ export class Store {
       .map((r) => ({ employee: r.employee, envelope: new Uint8Array(r.envelope) }));
   }
 
+  /** Swaps in a re-sealed envelope for a payslip already in the run. */
+  replaceEnvelope(runRoot: string, employee: string, envelope: Uint8Array): boolean {
+    const r = this.db.prepare("UPDATE envelopes SET envelope = ? WHERE run_root = ? AND employee = ?").run(envelope, runRoot, employee);
+    return r.changes === 1;
+  }
+
   inboxOf(employee: string): InboxItem[] {
     const rows = this.db.prepare(
       `SELECT r.*, e.envelope FROM envelopes e JOIN runs r ON r.run_root = e.run_root

@@ -221,6 +221,28 @@ export function createApp(cfg: AppConfig): Hono<Env> {
     return c.json({ envelopes: store.envelopesOf(s.run.runRoot).map((e) => ({ employee: e.employee, envelope: envelopeToText(e.envelope) })) });
   });
 
+  // Re-seal: the employer opens their own copy of a payslip and seals it again
+  // to the employee's current key (after a lost key). The server can't tell a
+  // good envelope from a bad one, and doesn't need to: the employee's browser
+  // checks every payslip against the run root the employer signed.
+  app.put("/api/runs/:root/envelopes/:employee", async (c) => {
+    const me = signedIn(c);
+    const s = store.getRun(c.req.param("root"));
+    if (!s) throw new HttpError(404, "no such pay run");
+    if (s.run.employer !== me) throw new HttpError(403, "only the employer can re-seal a run's payslips");
+    const { envelope } = await json<{ envelope?: string }>(c);
+    let bytes: Uint8Array;
+    try {
+      if (typeof envelope !== "string" || envelope.length > MAX_ENVELOPE_BYTES * 2) throw new Error();
+      bytes = envelopeFromText(envelope);
+      parseEnvelope(bytes);
+    } catch {
+      throw new HttpError(400, "that is not a QoreSeal envelope");
+    }
+    if (!store.replaceEnvelope(s.run.runRoot, c.req.param("employee"), bytes)) throw new HttpError(404, "this run has no payslip for that employee");
+    return c.json({ ok: true });
+  });
+
   app.post("/api/runs/:root/payment", async (c) => {
     const me = signedIn(c);
     const s = store.getRun(c.req.param("root"));
