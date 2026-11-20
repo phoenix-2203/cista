@@ -128,3 +128,20 @@ table input { padding: 0.35rem 0.45rem; font-size: 0.88rem; }
 .phrase { list-style: none; padding: 0; margin: 1rem 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; counter-reset: none; }
 .phrase li { background: #fff; border: 1px solid var(--rule); border-radius: 7px; padding: 0.45rem 0.6rem; font-family: var(--mono); font-size: 0.92rem; }
 .phrase li span { display: inline-block; width: 1.6rem; }
+
+/* Proof maker */
+.step-title { font: 600 0.95rem var(--sans); margin: 1.4rem 0 0.7rem; color: var(--ink); }
+.choice-grid { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 1rem; }
+.choice { text-align: left; background: #fff; border: 1px solid var(--rule); border-radius: 9px; padding: 0.75rem 0.85rem; cursor: pointer; display: flex; flex-direction: column; gap: 0.25rem; font: inherit; color: var(--ink); }
+.choice span { font-size: 0.82rem; color: var(--ink-3); }
+.choice.on { border-color: var(--seal); box-shadow: 0 0 0 2px var(--seal-soft); }
+.choice:disabled { opacity: 0.45; cursor: not-allowed; }
+.group { border: 1px solid var(--rule); border-radius: 9px; padding: 0.6rem 0.9rem 0.8rem; margin: 0; }
+.group legend { font-weight: 600; font-size: 0.85rem; padding: 0 0.3rem; }
+.tick { font-weight: 400; display: flex; gap: 0.5rem; align-items: baseline; margin: 0.35rem 0; }
+.tick input { width: auto; }
+.preview { background: #fff; border: 1px dashed var(--seal); border-radius: 9px; padding: 0.9rem 1.1rem; margin-bottom: 1rem; }
+.preview ul { margin: 0 0 0.5rem; padding-left: 1.1rem; }
+.preview li { margin: 0.2rem 0; }
+.claims { font: 1.05rem var(--serif); padding-left: 1.2rem; margin: 0.4rem 0 0; }
+.claims li { margin: 0.3rem 0; }
