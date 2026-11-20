@@ -1,6 +1,6 @@
 import { validatePayslip } from "@phoenix-2203/cista";
 import { describe, expect, it } from "vitest";
-import { lines, payoutUqor, percentOf, rowToPayslip, teamFromCsv, teamToCsv, toKobo, type TeamRow } from "../src/lib/payroll";
+import { centsToFusd, FUSD, lines, PAY_BANDS, rowToPayslip, teamFromCsv, teamToCsv, toCents, type TeamRow } from "../src/lib/payroll";
 
 const row: TeamRow = {
   address: "qor1k3lpzfetuf09e7d85rsc8mrsxeg53mzuz7nqj3",
@@ -8,58 +8,47 @@ const row: TeamRow = {
   staffId: "ACM-0042",
   role: "Operations Analyst",
   employedSince: "2025-03-01",
-  basic: "300,000",
-  housing: "120000",
-  transport: "60000",
-  paye: "52000",
+  basic: "3,000",
+  allowances: "450.50",
+  bonus: "",
+  tax: "420",
+  pension: "240",
+  otherDeductions: "",
 };
-const settings = {
-  employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh",
-  employerName: "Acme Logistics Ltd",
-  period: "2026-11",
-  payDate: "2026-11-28",
-  nairaPerQor: "1000",
-  thresholds: ["100000", "250000", "500000", ""],
-};
+const settings = { employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh", employerName: "Acme Logistics Ltd", period: "2026-11", payDate: "2026-11-28" };
 
 describe("payroll", () => {
-  it("reads naira amounts into kobo", () => {
-    expect(toKobo("300,000")).toBe(30_000_000n);
-    expect(toKobo("₦1,234.5")).toBe(123_450n);
-    expect(toKobo("")).toBe(0n);
-    expect(() => toKobo("12.345")).toThrow();
-    expect(() => toKobo("-5")).toThrow();
+  it("reads dollar amounts into cents", () => {
+    expect(toCents("3,000")).toBe(300_000n);
+    expect(toCents("$1,234.5")).toBe(123_450n);
+    expect(toCents("")).toBe(0n);
+    expect(() => toCents("12.345")).toThrow();
+    expect(() => toCents("-5")).toThrow();
   });
 
-  it("rounds percentages to the nearest kobo", () => {
-    expect(percentOf(101n, 250n)).toBe(3n); // 2.525 kobo -> 3
-    expect(percentOf(100n, 250n)).toBe(3n); // 2.5 -> 3 (half up)
-    expect(percentOf(99n, 250n)).toBe(2n);
-  });
-
-  it("works out pension (8% / 10% of basic + housing + transport) and NHF (2.5% of basic)", () => {
+  it("works out gross and net", () => {
     const l = lines(row);
-    expect(l.gross).toBe(48_000_000n);
-    expect(l.pension).toBe(3_840_000n);
-    expect(l.employerPension).toBe(4_800_000n);
-    expect(l.nhf).toBe(750_000n);
-    expect(l.net).toBe(48_000_000n - 3_840_000n - 750_000n - 5_200_000n);
+    expect(l.gross).toBe(345_050n);
+    expect(l.net).toBe(345_050n - 42_000n - 24_000n);
   });
 
-  it("converts net pay to uqor at the employer's rate", () => {
-    expect(payoutUqor(38_210_000n, "1000")).toBe(382_100_000n);
-    expect(() => payoutUqor(1n, "0")).toThrow();
+  it("pays $1 as 1 fUSD (6 decimals)", () => {
+    expect(centsToFusd(100n)).toBe(1_000_000n);
+    expect(centsToFusd(279_050n)).toBe(2_790_500_000n);
   });
 
-  it("makes a valid payslip", () => {
+  it("makes a valid USD payslip paid in fUSD, with the pay bands", () => {
     const slip = rowToPayslip(row, settings);
     expect(() => validatePayslip(slip)).not.toThrow();
-    expect(slip.payout.amount).toBe(382_100_000n);
-    expect(slip.thresholds).toEqual([10_000_000n, 25_000_000n, 50_000_000n]);
+    expect(slip.currency).toBe("USD");
+    expect(slip.payout).toEqual({ address: row.address, denom: FUSD.denom, amount: 2_790_500_000n });
+    expect(slip.thresholds).toHaveLength(PAY_BANDS.length);
+    expect(slip.earnings.map((e) => e.code)).toEqual(["basic", "allowances"]);
   });
 
-  it("refuses a row whose deductions exceed pay", () => {
-    expect(() => rowToPayslip({ ...row, paye: "900000" }, settings)).toThrow(/deductions/);
+  it("refuses a row with no basic salary, or deductions above pay", () => {
+    expect(() => rowToPayslip({ ...row, basic: "" }, settings)).toThrow(/basic/);
+    expect(() => rowToPayslip({ ...row, tax: "9000" }, settings)).toThrow(/deductions/);
   });
 
   it("round-trips the team through CSV, quotes and all", () => {

@@ -1,12 +1,26 @@
 /**
  * Turning the employer's team table into payslips.
  *
- * Statutory lines follow Nigerian rules: pension 8% from the employee and 10%
- * from the employer on basic + housing + transport (Pension Reform Act 2014),
- * and NHF at 2.5% of basic. PAYE is typed in by the employer for now.
- * Payouts are made in testnet QOR at a rate the employer sets.
+ * Payslips are in US dollars and paid in fUSD, the fest's dollar stablecoin,
+ * one to one: $1 of net pay is 1 fUSD on chain, so there is no exchange rate
+ * to set or trust. fUSD is an ERC-20 token that also lives on QoreChain's
+ * native lane as the bank denom below, which is what lets one hybrid-signed
+ * multi-send pay the whole team.
+ *
+ * Every payslip also answers "is net pay at least $X?" for a ladder of bands,
+ * so an employee can prove a band (or a range between two bands) without
+ * showing the amount.
  */
 import type { Payslip } from "@phoenix-2203/cista";
+
+export const FUSD = {
+  denom: "erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA",
+  symbol: "fUSD",
+  decimals: 6,
+} as const;
+
+/** Monthly net-pay bands, in dollars. */
+export const PAY_BANDS = [250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000];
 
 export interface TeamRow {
   address: string;
@@ -14,11 +28,13 @@ export interface TeamRow {
   staffId: string;
   role: string;
   employedSince: string;
-  /** Naira amounts as typed (e.g. "300000" or "300,000.50"). */
+  /** Dollar amounts as typed (e.g. "3000" or "3,000.50"). */
   basic: string;
-  housing: string;
-  transport: string;
-  paye: string;
+  allowances: string;
+  bonus: string;
+  tax: string;
+  pension: string;
+  otherDeductions: string;
 }
 
 export interface RunSettings {
@@ -26,13 +42,7 @@ export interface RunSettings {
   employerName: string;
   period: string;
   payDate: string;
-  /** Naira per 1 QOR. */
-  nairaPerQor: string;
-  /** Net-pay thresholds in naira that every payslip answers yes or no to. */
-  thresholds: string[];
 }
-
-export const DEFAULT_THRESHOLDS = ["100000", "250000", "500000", "1000000"];
 
 export const emptyRow = (): TeamRow => ({
   address: "",
@@ -41,49 +51,44 @@ export const emptyRow = (): TeamRow => ({
   role: "",
   employedSince: "",
   basic: "",
-  housing: "",
-  transport: "",
-  paye: "",
+  allowances: "",
+  bonus: "",
+  tax: "",
+  pension: "",
+  otherDeductions: "",
 });
 
-/** "300,000.50" naira to kobo. */
-export function toKobo(naira: string): bigint {
-  const s = naira.replace(/[,\s₦]/g, "");
+/** "3,000.50" dollars to cents. */
+export function toCents(dollars: string): bigint {
+  const s = dollars.replace(/[,\s$]/g, "");
   if (s === "") return 0n;
   const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(s);
-  if (!m) throw new Error(`"${naira}" is not an amount in naira`);
+  if (!m) throw new Error(`"${dollars}" is not an amount in dollars`);
   return BigInt(m[1]!) * 100n + BigInt((m[2] ?? "").padEnd(2, "0"));
 }
 
-/** Rounds a percentage of an amount to the nearest kobo (half up). */
-export function percentOf(kobo: bigint, basisPoints: bigint): bigint {
-  return (kobo * basisPoints + 5_000n) / 10_000n;
-}
-
 export function lines(row: TeamRow) {
-  const basic = toKobo(row.basic);
-  const housing = toKobo(row.housing);
-  const transport = toKobo(row.transport);
-  const pensionable = basic + housing + transport;
-  const pension = percentOf(pensionable, 800n);
-  const employerPension = percentOf(pensionable, 1_000n);
-  const nhf = percentOf(basic, 250n);
-  const paye = toKobo(row.paye);
-  const gross = pensionable;
-  const net = gross - pension - nhf - paye;
-  return { basic, housing, transport, pension, employerPension, nhf, paye, gross, net };
+  const basic = toCents(row.basic);
+  const allowances = toCents(row.allowances);
+  const bonus = toCents(row.bonus);
+  const tax = toCents(row.tax);
+  const pension = toCents(row.pension);
+  const other = toCents(row.otherDeductions);
+  const gross = basic + allowances + bonus;
+  const net = gross - tax - pension - other;
+  return { basic, allowances, bonus, tax, pension, other, gross, net };
 }
 
-/** Net pay in kobo to a payout in uqor at the employer's rate. */
-export function payoutUqor(netKobo: bigint, nairaPerQor: string): bigint {
-  const rateKobo = toKobo(nairaPerQor);
-  if (rateKobo <= 0n) throw new Error("set how many naira one QOR is worth");
-  return (netKobo * 1_000_000n) / rateKobo;
+/** Net pay in cents to fUSD base units (6 decimals): $1 = 1 fUSD. */
+export function centsToFusd(cents: bigint): bigint {
+  return cents * 10n ** BigInt(FUSD.decimals - 2);
 }
 
 export function rowToPayslip(row: TeamRow, s: RunSettings): Payslip {
   const l = lines(row);
+  if (l.basic <= 0n) throw new Error(`${row.name || row.address || "a row"}: add a basic salary`);
   if (l.net <= 0n) throw new Error(`${row.name || row.address}: deductions are larger than pay`);
+  const line = (code: string, label: string, amount: bigint) => (amount > 0n ? [{ code, label, amount }] : []);
   return {
     version: 1,
     employer: { address: s.employer, name: s.employerName.trim() },
@@ -96,24 +101,16 @@ export function rowToPayslip(row: TeamRow, s: RunSettings): Payslip {
     },
     period: s.period,
     payDate: s.payDate,
-    currency: "NGN",
-    earnings: [
-      { code: "basic", label: "Basic salary", amount: l.basic },
-      ...(l.housing > 0n ? [{ code: "housing", label: "Housing allowance", amount: l.housing }] : []),
-      ...(l.transport > 0n ? [{ code: "transport", label: "Transport allowance", amount: l.transport }] : []),
-    ],
-    deductions: [
-      ...(l.paye > 0n ? [{ code: "paye", label: "PAYE tax", amount: l.paye }] : []),
-      { code: "pension", label: "Pension (8%)", amount: l.pension },
-      ...(l.nhf > 0n ? [{ code: "nhf", label: "National Housing Fund (2.5%)", amount: l.nhf }] : []),
-    ],
-    employerContributions: [{ code: "pension", label: "Employer pension (10%)", amount: l.employerPension }],
-    payout: { address: row.address.trim(), denom: "uqor", amount: payoutUqor(l.net, s.nairaPerQor) },
-    thresholds: s.thresholds.filter((t) => t.trim() !== "").map(toKobo),
+    currency: "USD",
+    earnings: [...line("basic", "Basic salary", l.basic), ...line("allowances", "Allowances", l.allowances), ...line("bonus", "Bonus", l.bonus)],
+    deductions: [...line("tax", "Income tax", l.tax), ...line("pension", "Pension", l.pension), ...line("other", "Other deductions", l.other)],
+    employerContributions: [],
+    payout: { address: row.address.trim(), denom: FUSD.denom, amount: centsToFusd(l.net) },
+    thresholds: PAY_BANDS.map((d) => BigInt(d) * 100n),
   };
 }
 
-const CSV_COLUMNS: (keyof TeamRow)[] = ["address", "name", "staffId", "role", "employedSince", "basic", "housing", "transport", "paye"];
+const CSV_COLUMNS: (keyof TeamRow)[] = ["address", "name", "staffId", "role", "employedSince", "basic", "allowances", "bonus", "tax", "pension", "otherDeductions"];
 
 export function teamToCsv(rows: TeamRow[]): string {
   const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
