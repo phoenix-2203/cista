@@ -80,7 +80,7 @@ export interface PayslipRecipients {
   employer: SealRecipient;
 }
 
-export function sealPayslip(run: PayRun, slip: BuiltSlip, to: PayslipRecipients): Uint8Array {
+export function sealPayslip(run: Pick<PayRun, "chainId" | "employer" | "period" | "runRoot">, slip: BuiltSlip, to: PayslipRecipients): Uint8Array {
   const pkg: PayslipPackage = {
     v: 1,
     runRoot: toHex(run.runRoot),
