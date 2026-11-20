@@ -16,3 +16,8 @@ coverage/
 # logs and OS files
 *.log
 .DS_Store
+
+# local databases
+*.db
+*.db-shm
+*.db-wal
