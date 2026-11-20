@@ -64,11 +64,12 @@ export class PayslipError extends Error {
 
 const QOR_ADDRESS = /^qor1[02-9ac-hj-np-z]{38}$/;
 const CODE = /^[a-z][a-z0-9]{0,31}$/;
-const DENOM = /^[a-z][a-z0-9/]{1,63}$/;
+/** A bank denom: "uqor", an IBC denom, or an ERC-20 token's native form ("erc20:0x…", e.g. fUSD). */
+const DENOM = /^(?:[a-z][a-z0-9/]{1,63}|erc20:0x[0-9a-fA-F]{40})$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
 const MAX_LINES = 32;
-const MAX_THRESHOLDS = 16;
+const MAX_THRESHOLDS = 32;
 
 function isDate(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;

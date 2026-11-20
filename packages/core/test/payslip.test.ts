@@ -37,6 +37,20 @@ describe("validatePayslip", () => {
   }
 });
 
+describe("payout denoms", () => {
+  it("accepts uqor and an ERC-20 token's native denom (fUSD)", () => {
+    for (const denom of ["uqor", "erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA"]) {
+      expect(() => validatePayslip(sampleSlip({ payout: { ...sampleSlip().payout, denom } }))).not.toThrow();
+    }
+  });
+
+  it("refuses malformed denoms", () => {
+    for (const denom of ["UQOR", "erc20:0x1234", "erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CAz", "u qor"]) {
+      expect(() => validatePayslip(sampleSlip({ payout: { ...sampleSlip().payout, denom } }))).toThrow(PayslipError);
+    }
+  });
+});
+
 describe("payslipFields", () => {
   it("is deterministic and has unique names", () => {
     const a = payslipFields(sampleSlip());
