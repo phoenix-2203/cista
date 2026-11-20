@@ -1,25 +1,23 @@
 /**
  * The user's sealing keys in this browser.
  *
- * The seed is made here, saved only inside a password-encrypted vault
- * (localStorage and a backup file), and unlocked into memory for this page
- * only. Both public keys (ML-KEM-1024 and X25519) are published in a key
- * card that the user signs in QoreX with their registered ML-DSA-87 key, so
- * anyone can check the keys are really theirs. (QoreX keeps registering an
- * ML-KEM key in the chain's KEM registry for the wallet itself: a website
- * can't send MsgRegisterKEMKey.)
+ * The key comes from a 24-word recovery phrase, shown once when it is made.
+ * The password locks a copy in this browser (and in an optional backup file);
+ * the phrase rebuilds the key if the password is forgotten. Once unlocked, the
+ * key stays unlocked in this tab (see tabkey.ts) until the tab closes or sits
+ * idle for 30 minutes.
+ *
+ * Both public keys (ML-KEM-1024 and X25519) are published in a key card that
+ * the user signs in QoreX with their registered ML-DSA-87 key, so anyone can
+ * check the keys are really theirs. (QoreX keeps registering an ML-KEM key in
+ * the chain's KEM registry for the wallet itself: a website can't send
+ * MsgRegisterKEMKey.)
  */
-import { lockSeed, toHex, unlockSeed, type Vault } from "@phoenix-2203/cista";
-import {
-  assembleRecipientCard,
-  recipientCardFields,
-  recipientCardText,
-  sealKeysFromSeed,
-  type RecipientCard,
-  type SealKeyPair,
-} from "@qorechain/qoreseal";
+import { lockSeed, newRecoveryPhrase, seedFromPhrase, toHex, unlockSeed, type Vault } from "@phoenix-2203/cista";
+import { assembleRecipientCard, recipientCardFields, recipientCardText, sealKeysFromSeed, type RecipientCard, type SealKeyPair } from "@qorechain/qoreseal";
 import { api, ApiError } from "./api";
 import { CHAIN_ID, signText } from "./qorex";
+import { forgetSeed, recallSeed, rememberSeed, touchSeed } from "./tabkey";
 
 const vaultKey = (address: string) => `cista.vault.${address}`;
 const unlocked = new Map<string, SealKeyPair>();
@@ -40,32 +38,70 @@ function saveVault(v: Vault) {
   }
 }
 
+function announce() {
+  window.dispatchEvent(new Event("cista:keys"));
+}
+
+async function useSeed(address: string, seed: Uint8Array): Promise<SealKeyPair> {
+  const keys = sealKeysFromSeed(seed);
+  unlocked.set(address, keys);
+  await rememberSeed(address, seed);
+  seed.fill(0);
+  announce();
+  return keys;
+}
+
+/** The unlocked keys, if this page has them. */
 export function unlockedKeys(address: string): SealKeyPair | undefined {
+  if (unlocked.has(address)) touchSeed(address);
   return unlocked.get(address);
 }
 
-export function forgetKeys(address: string) {
-  unlocked.delete(address);
+/** After a reload: picks the key back up if this tab unlocked it recently. */
+export async function restoreKeys(address: string): Promise<SealKeyPair | undefined> {
+  if (unlocked.has(address)) return unlocked.get(address);
+  const seed = await recallSeed(address);
+  return seed ? useSeed(address, seed) : undefined;
 }
 
-/** New sealing keys, locked with a password. Returns the vault to back up. */
-export async function createKeys(address: string, password: string): Promise<Vault> {
-  const seed = crypto.getRandomValues(new Uint8Array(32));
+export function lockKeys(address: string) {
+  unlocked.delete(address);
+  forgetSeed(address);
+  announce();
+}
+
+/** A new key: returns the recovery phrase to show once, and the locked vault. */
+export async function createKeys(address: string, password: string): Promise<{ phrase: string; vault: Vault }> {
+  const phrase = newRecoveryPhrase();
+  const seed = seedFromPhrase(phrase);
   const vault = await lockSeed(seed, password, address);
   saveVault(vault);
-  unlocked.set(address, sealKeysFromSeed(seed));
-  seed.fill(0);
-  return vault;
+  await useSeed(address, seed);
+  return { phrase, vault };
 }
 
 export async function unlockKeys(address: string, password: string, vault = savedVault(address)): Promise<SealKeyPair> {
   if (!vault) throw new Error("no Cista key in this browser for this account");
   const seed = await unlockSeed(vault, password, address);
-  const keys = sealKeysFromSeed(seed);
-  seed.fill(0);
   saveVault(vault);
-  unlocked.set(address, keys);
-  return keys;
+  return useSeed(address, seed);
+}
+
+/** Forgot the password: the recovery phrase rebuilds the key under a new password. */
+export async function recoverKeys(address: string, phrase: string, newPassword: string): Promise<{ keys: SealKeyPair; matchesCard: boolean | null }> {
+  const seed = seedFromPhrase(phrase);
+  const keys = sealKeysFromSeed(seed);
+  let matchesCard: boolean | null = null;
+  try {
+    const entry = await api.card(address);
+    matchesCard = entry.mlkemPublicKey === toHex(keys.mlkemPublicKey);
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 404)) throw e;
+  }
+  const vault = await lockSeed(seed, newPassword, address);
+  saveVault(vault);
+  await useSeed(address, seed);
+  return { keys, matchesCard };
 }
 
 export function downloadVault(vault: Vault) {

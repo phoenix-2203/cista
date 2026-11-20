@@ -95,6 +95,7 @@ export const api = {
   myRuns: () => call<{ runs: StoredRun[] }>("GET", "/api/runs").then((r) => r.runs),
   run: (root: string) => call<StoredRun>("GET", `/api/runs/${root}`, undefined, false),
   runEnvelopes: (root: string) => call<{ envelopes: { employee: string; envelope: string }[] }>("GET", `/api/runs/${root}/envelopes`).then((r) => r.envelopes),
+  reseal: (root: string, employee: string, envelope: string) => call<{ ok: true }>("PUT", `/api/runs/${root}/envelopes/${employee}`, { envelope }),
   recordPayment: (root: string, txHash: string) => call<{ ok: true; payment: StoredRun["payment"] }>("POST", `/api/runs/${root}/payment`, { txHash }),
   inbox: () =>
     call<{ payslips: { run: SignedRun; payment?: StoredRun["payment"]; envelope: string }[] }>("GET", "/api/me/payslips").then((r) => r.payslips),
