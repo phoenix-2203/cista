@@ -87,8 +87,9 @@ export async function signOut(): Promise<void> {
 }
 
 export const api = {
-  card: (address: string) => call<{ card: RecipientCard }>("GET", `/api/cards/${address}`, undefined, false).then((r) => r.card),
-  putCard: (card: RecipientCard) => call<{ ok: true }>("POST", "/api/cards", { card }),
+  /** An account's key card: its ML-KEM-1024 key (hex) and the card it signed for it. */
+  card: (address: string) => call<{ card: RecipientCard; mlkemPublicKey: string }>("GET", `/api/cards/${address}`, undefined, false),
+  putCard: (card: RecipientCard, mlkemPublicKey: string) => call<{ ok: true }>("POST", "/api/cards", { card, mlkemPublicKey }),
   uploadRun: (run: SignedRun, envelopes: { employee: string; envelope: string }[]) =>
     call<{ ok: true; runRoot: string }>("POST", "/api/runs", { run, envelopes }),
   myRuns: () => call<{ runs: StoredRun[] }>("GET", "/api/runs").then((r) => r.runs),
