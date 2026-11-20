@@ -13,7 +13,8 @@
   "dependencies": {
     "@noble/hashes": "^2.4.0",
     "@qorechain/qoreseal": "^0.1.0",
-    "@qorechain/qoresign": "^0.2.0"
+    "@qorechain/qoresign": "^0.2.0",
+    "@scure/bip39": "2.4.0"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

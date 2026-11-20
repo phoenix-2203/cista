@@ -13,3 +13,4 @@ export * from "./network";
 export * from "./signin";
 export * from "./bankmsg";
 export * from "./vault";
+export * from "./recovery";

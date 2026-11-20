@@ -90,6 +90,9 @@ importers:
       '@qorechain/qoresign':
         specifier: ^0.2.0
         version: 0.2.0
+      '@scure/bip39':
+        specifier: 2.4.0
+        version: 2.4.0
     devDependencies:
       typescript:
         specifier: ^7.0.2
