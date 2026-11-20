@@ -9,3 +9,4 @@ export * from "./seal";
 export * from "./sign";
 export * from "./payment";
 export * from "./verify";
+export * from "./network";
