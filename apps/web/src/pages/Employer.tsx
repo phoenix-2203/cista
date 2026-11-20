@@ -1,12 +1,12 @@
 /** The employer's page: build the team table, then run payroll in five steps. */
 import { useMemo, useState } from "react";
 import { statementOf, toHex, type PayRun, type SignedRun } from "@phoenix-2203/cista";
-import { money, NeedsKey, Notice, qor, short, useAction } from "../components";
+import { money, NeedsKey, Notice, payout, qor, short, useAction } from "../components";
 import { balanceOf, EXPLORER_TX } from "../lib/chain";
 import { unlockedKeys } from "../lib/keys";
 import {
-  DEFAULT_THRESHOLDS,
   emptyRow,
+  FUSD,
   lines,
   rowToPayslip,
   teamFromCsv,
@@ -46,8 +46,6 @@ function PayrollDesk({ employer }: { employer: string }) {
     employerName: "",
     period: thisMonth(),
     payDate: today(),
-    nairaPerQor: "1000",
-    thresholds: DEFAULT_THRESHOLDS,
   });
   const [rows, setRows] = useState<TeamRow[]>([emptyRow()]);
   const [stage, setStage] = useState<Stage>({ kind: "edit" });
@@ -102,8 +100,11 @@ function PayrollDesk({ employer }: { employer: string }) {
       if (found.size > 0) throw new Error("fix the rows marked below, then check again");
       buildRun(payslips as NonNullable<(typeof payslips)[number]>[]); // validates the whole run (duplicates, one employer…)
       const total = (payslips as NonNullable<(typeof payslips)[number]>[]).reduce((s, p) => s + p.payout.amount, 0n);
-      const balance = await balanceOf(employer);
-      if (balance < total + 1_000_000n) throw new Error(`your account holds ${qor(balance)}; this run pays ${qor(total)} plus a fee`);
+      const [fusd, uqor] = await Promise.all([balanceOf(employer, FUSD.denom), balanceOf(employer, "uqor")]);
+      if (fusd < total) {
+        throw new Error(`this run pays ${payout(total, FUSD.denom)}, and your account holds ${payout(fusd, FUSD.denom)} on QoreChain's native lane. Get test fUSD from the faucet at dashboard.qorechain.io/faucet`);
+      }
+      if (uqor < 200_000n) throw new Error(`the transaction fee is paid in QOR, and your account holds ${qor(uqor)}`);
       setStage({ kind: "checked", recipients });
     });
 
@@ -191,13 +192,10 @@ function PayrollDesk({ employer }: { employer: string }) {
             <label htmlFor="paydate">Pay date</label>
             <input id="paydate" type="date" disabled={locked} value={settings.payDate} onChange={(e) => setSettings({ ...settings, payDate: e.target.value })} />
           </div>
-          <div className="field">
-            <label htmlFor="rate">₦ per QOR <span className="hint">testnet payout rate</span></label>
-            <input id="rate" inputMode="decimal" disabled={locked} value={settings.nairaPerQor} onChange={(e) => setSettings({ ...settings, nairaPerQor: e.target.value })} />
-          </div>
         </div>
         <p className="small muted">
-          Every payslip also answers "is net pay at least…" for {settings.thresholds.map((t) => money(BigInt(t || "0") * 100n)).join(", ")}, so employees can prove a band without showing the amount.
+          Payslips are in US dollars and paid in fUSD, one to one. Every payslip also answers "is net pay at least…" for a ladder of bands from $250 to
+          $50,000 a month, so employees can prove a band or a range without showing the amount.
         </p>
       </div>
 
@@ -212,13 +210,13 @@ function PayrollDesk({ employer }: { employer: string }) {
             <button className="btn ghost small" onClick={saveCsv}>Download CSV</button>
           </div>
         </div>
-        <p className="small muted">Amounts in naira per month. Pension (8%) and NHF (2.5% of basic) are worked out for you. The CSV stays on your computer: Cista never stores your team in the clear.</p>
+        <p className="small muted">Monthly amounts in US dollars. The CSV stays on your computer: Cista never stores your team in the clear.</p>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Address</th><th>Name</th><th>Staff ID</th><th>Role</th><th>Start date</th>
-                <th className="num">Basic</th><th className="num">Housing</th><th className="num">Transport</th><th className="num">PAYE</th>
+                <th className="num">Basic</th><th className="num">Allowances</th><th className="num">Bonus</th><th className="num">Tax</th><th className="num">Pension</th><th className="num">Other ded.</th>
                 <th className="num">Net</th><th />
               </tr>
             </thead>
@@ -233,12 +231,12 @@ function PayrollDesk({ employer }: { employer: string }) {
                       </td>
                     ))}
                     <td><input aria-label="start date" type="date" disabled={locked} value={r.employedSince} onChange={(e) => edit(i, { employedSince: e.target.value })} /></td>
-                    {(["basic", "housing", "transport", "paye"] as const).map((k) => (
-                      <td key={k} className="num" style={{ minWidth: 110 }}>
+                    {(["basic", "allowances", "bonus", "tax", "pension", "otherDeductions"] as const).map((k) => (
+                      <td key={k} className="num" style={{ minWidth: 100 }}>
                         <input aria-label={k} inputMode="decimal" disabled={locked} value={r[k]} onChange={(e) => edit(i, { [k]: e.target.value })} />
                       </td>
                     ))}
-                    <td className="num">{c.ok ? money(c.net) : <span className="pill bad">?</span>}</td>
+                    <td className="num">{c.ok ? money(c.net, "USD") : <span className="pill bad">?</span>}</td>
                     <td>
                       {!locked && rows.length > 1 && (
                         <button className="btn ghost small" aria-label="remove row" onClick={() => { setRows(rows.filter((_, j) => j !== i)); setStage({ kind: "edit" }); }}>×</button>
@@ -255,7 +253,7 @@ function PayrollDesk({ employer }: { employer: string }) {
         ))}
         <div className="row" style={{ justifyContent: "space-between", marginTop: "0.8rem" }}>
           {!locked ? <button className="btn ghost small" onClick={() => { setRows([...rows, emptyRow()]); setStage({ kind: "edit" }); }}>Add a person</button> : <span />}
-          <strong>Total net pay: {money(total)}</strong>
+          <strong>Total net pay: {money(total, "USD")} = {payout(total * 10_000n, FUSD.denom)}</strong>
         </div>
       </div>
 
@@ -285,7 +283,7 @@ function PayrollDesk({ employer }: { employer: string }) {
           <Step n={4} done={stage.kind === "paid"} title="Pay everyone in one transaction">
             {stage.kind === "uploaded" && (
               <div className="row">
-                <button className="btn small seal" disabled={busy} onClick={() => pay("multi-send")}>{busy ? "Waiting for QoreX…" : `Pay ${qor(stage.run.totalPayout)}`}</button>
+                <button className="btn small seal" disabled={busy} onClick={() => pay("multi-send")}>{busy ? "Waiting for QoreX…" : `Pay ${payout(stage.run.totalPayout, stage.run.denom)}`}</button>
                 {stage.run.slips.length <= 32 && (
                   <button className="btn ghost small" disabled={busy} onClick={() => pay("sends")}>Pay with separate transfers</button>
                 )}
