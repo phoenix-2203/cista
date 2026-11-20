@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { signIn } from "./lib/api";
 import { hasQorex, QOREX_INSTALL_URL } from "./lib/qorex";
-import { Link } from "./lib/router";
-import { unlockedKeys } from "./lib/keys";
+import { Link, navigate } from "./lib/router";
+import { restoreKeys, savedVault, unlockedKeys } from "./lib/keys";
+import { UnlockForm } from "./pages/KeyForms";
 import { useSession } from "./lib/useSession";
 
 export function errorText(e: unknown): string {
@@ -76,18 +77,40 @@ export function SignInCard({ why }: { why: string }) {
   );
 }
 
-/** Shows children only when signed in and the sealing key is unlocked. */
+/** Shows children only when signed in and the sealing key is unlocked; unlocks in place. */
 export function NeedsKey({ why, children }: { why: string; children: (address: string) => ReactNode }) {
   const session = useSession();
+  const [checked, setChecked] = useState<string | null>(null);
+  const [, rerender] = useState(0);
+
+  useEffect(() => {
+    if (!session) return;
+    let live = true;
+    void restoreKeys(session.address).finally(() => live && setChecked(session.address));
+    const on = () => rerender((n) => n + 1);
+    window.addEventListener("cista:keys", on);
+    return () => {
+      live = false;
+      window.removeEventListener("cista:keys", on);
+    };
+  }, [session?.address]);
+
   if (!session) return <SignInCard why={why} />;
-  if (!unlockedKeys(session.address)) {
+  if (unlockedKeys(session.address)) return <>{children(session.address)}</>;
+  if (checked !== session.address) return <div className="card">Opening your key…</div>;
+  if (!savedVault(session.address)) {
     return (
       <div className="card">
-        <h3>Unlock your Cista key</h3>
-        <p>Payslips are sealed to a key that lives in this browser, locked with your password. Set it up once, or unlock it.</p>
-        <Link className="btn" href="/setup">Set up or unlock my key</Link>
+        <h3>Set up your Cista key first</h3>
+        <p>Payslips are sealed to a key that lives in this browser. It takes a minute, once.</p>
+        <Link className="btn" href="/setup">Set up my key</Link>
       </div>
     );
   }
-  return <>{children(session.address)}</>;
+  return (
+    <div className="card">
+      <h3>Unlock your Cista key</h3>
+      <UnlockForm address={session.address} onDone={() => rerender((n) => n + 1)} onForgot={() => navigate("/setup?forgot=1")} />
+    </div>
+  );
 }
