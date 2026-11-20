@@ -1,0 +1,30 @@
+# The Cista server, kept running by systemd. setup.sh installs it as
+# /etc/systemd/system/cista.service. It holds no keys and signs nothing.
+[Unit]
+Description=Cista server (sealed payroll on QoreChain)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cista
+Group=cista
+WorkingDirectory=/opt/cista/apps/server
+Environment=NODE_ENV=production
+Environment=CISTA_PORT=8787
+Environment=CISTA_DB=/var/lib/cista/cista.db
+Environment=CISTA_DOMAIN=cista.duckdns.org
+ExecStart=/usr/bin/env node --disable-warning=ExperimentalWarning --import tsx src/main.ts
+Restart=on-failure
+RestartSec=3
+
+# Hardening: the server only needs its database folder.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/cista
+StateDirectory=cista
+
+[Install]
+WantedBy=multi-user.target
