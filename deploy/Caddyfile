@@ -1,0 +1,43 @@
+# Cista on a VPS that already runs other sites with Caddy.
+# setup.sh copies this to /etc/caddy/cista.caddy and imports it from the main Caddyfile.
+cista.duckdns.org {
+	encode zstd gzip
+	root * /opt/cista/apps/web/dist
+
+	# The Cista server: sign-in, sealed payslips (ciphertext only), pay runs.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+
+	# The QoreChain testnet REST API sends no CORS headers, so the app reaches it
+	# through this same origin. Read-only GET requests only; nothing is signed here.
+	handle_path /lcd-testnet/* {
+		@notget not method GET HEAD OPTIONS
+		respond @notget 405
+		reverse_proxy https://api-testnet.qore.host {
+			header_up Host api-testnet.qore.host
+		}
+	}
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@pages not path /assets/* /lcd-testnet/* /api/*
+	header @pages Cache-Control "no-cache"
+
+	# Strict browser rules: scripts, styles and data only from this site. The
+	# proof of pay rides in the URL fragment, which never reaches the server.
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Cross-Origin-Opener-Policy same-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
