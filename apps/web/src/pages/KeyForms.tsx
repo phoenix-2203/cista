@@ -33,6 +33,20 @@ export function UnlockForm({ address, vault, onDone, onForgot }: { address: stri
 
 export function PhraseView({ phrase, vault, onDone }: { phrase: string; vault: Vault; onDone: () => void }) {
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(phrase);
+    setCopied(true);
+    // Don't leave the phrase on the clipboard: clear it after a minute (if it's still ours).
+    setTimeout(async () => {
+      try {
+        if ((await navigator.clipboard.readText()) === phrase) await navigator.clipboard.writeText("");
+      } catch {
+        /* reading the clipboard needs focus or permission; nothing more to do */
+      }
+      setCopied(false);
+    }, 60_000);
+  };
   const words = phrase.split(" ");
   return (
     <div className="card">
@@ -46,6 +60,10 @@ export function PhraseView({ phrase, vault, onDone }: { phrase: string; vault: V
           <li key={i}><span className="muted small">{i + 1}</span> {w}</li>
         ))}
       </ol>
+      <div className="row" style={{ marginBottom: "0.8rem" }}>
+        <button className="btn ghost small" onClick={() => void copy()}>{copied ? "Copied (cleared in 1 minute)" : "Copy the 24 words"}</button>
+        <span className="small muted">Paste only into a password manager. Never into a chat, email or screenshot.</span>
+      </div>
       <Notice>
         This is not your QoreX seed phrase and it can't move any funds: it only opens payslips. Never type it anywhere except Cista's "Forgot
         your password?" form.
