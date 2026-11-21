@@ -4,6 +4,7 @@ import { fromHex, grossPay, netPay, openPayslip, totalDeductions, type OpenedPay
 import { envelopeFromText } from "@qorechain/qoreseal";
 import { money, NeedsKey, Notice, payout, short, useAction } from "../components";
 import { api, type StoredRun } from "../lib/api";
+import { fieldValue } from "../lib/fields";
 import { CHAIN_ID } from "../lib/qorex";
 import { unlockedKeys } from "../lib/keys";
 import { ProofMaker } from "./ProofMaker";
@@ -107,7 +108,7 @@ function PayslipView({ entry }: { entry: InboxEntry }) {
       <header>
         <div>
           <h2 style={{ marginBottom: 0 }}>{s.employer.name}</h2>
-          <span className="small muted">Payslip for {s.period} · paid {s.payDate}</span>
+          <span className="small muted">Payslip for {s.period} · paid {s.payDate}{s.payFrequency ? ` · ${fieldValue("payFrequency", s.payFrequency)}` : ""}</span>
         </div>
         <div style={{ textAlign: "right" }}>
           <div className="small muted">Net pay</div>
@@ -128,6 +129,13 @@ function PayslipView({ entry }: { entry: InboxEntry }) {
           {s.employerContributions.map((l) => <tr key={`c${l.code}`}><td className="muted">{l.label} (paid by employer)</td><td className="num muted">{money(l.amount, cur)}</td></tr>)}
         </tbody>
       </table>
+      {s.yearToDate && (
+        <div className="grid ytd" style={{ marginTop: "1rem" }}>
+          <div><div className="small muted">Gross this year</div>{money(s.yearToDate.gross, cur)}</div>
+          <div><div className="small muted">Deductions this year</div>−{money(s.yearToDate.deductions, cur)}</div>
+          <div><div className="small muted">Net this year</div><strong>{money(s.yearToDate.gross - s.yearToDate.deductions, cur)}</strong></div>
+        </div>
+      )}
       <p className="small muted" style={{ marginTop: "1rem" }}>
         Paid {payout(s.payout.amount, s.payout.denom)} to {short(s.payout.address)}. This payslip matches the pay run {short(entry.run.runRoot)} your employer signed with ML-DSA-87.
       </p>
