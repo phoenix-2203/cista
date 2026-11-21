@@ -14,7 +14,7 @@
  * Writes the address to drill-results/deployment-testnet.json (git-ignored;
  * Claude commits it into packages/contracts/deployments/).
  */
-import { decodeErrorResult, getAddress } from "viem";
+import { BaseError, ContractFunctionRevertedError, getAddress } from "viem";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { CISTA_VERIFIER_ABI, CISTA_VERIFIER_BYTECODE } from "../src/artifact";
 import { MAX_FEE_PER_GAS, loadTestAccount } from "./lib/testnet";
@@ -24,24 +24,35 @@ const RUN = process.argv[2] ?? "47f10efc4f5681edd55c8ff478490dacee73dbf3d16e57b2
 const GAS = 2_500_000n;
 
 const t = await loadTestAccount();
-console.log(`Deploying CistaVerifier from ${t.qor} (${t.evm})`);
-const win = await t.openWindow([], 1, GAS);
-console.log(`  window (1 tx): ${win}`);
-await new Promise((r) => setTimeout(r, 6000)); // let the window's block land first
+// CISTA_VERIFIER=0x… skips the deployment and only runs the checks against that contract.
+const existing = process.env.CISTA_VERIFIER;
+let address: `0x${string}`;
+let hash: `0x${string}` | undefined;
+let block: bigint | undefined;
+if (existing) {
+  address = getAddress(existing);
+  console.log(`Checking the CistaVerifier at ${address}`);
+} else {
+  console.log(`Deploying CistaVerifier from ${t.qor} (${t.evm})`);
+  const win = await t.openWindow([], 1, GAS);
+  console.log(`  window (1 tx): ${win}`);
+  await new Promise((r) => setTimeout(r, 6000)); // let the window's block land first
 
-const hash = await t.wallet.deployContract({
-  account: t.wallet.account!,
-  chain: t.wallet.chain,
-  abi: CISTA_VERIFIER_ABI,
-  bytecode: CISTA_VERIFIER_BYTECODE,
-  gas: GAS,
-  maxFeePerGas: MAX_FEE_PER_GAS,
-  maxPriorityFeePerGas: 1_000_000_000n,
-});
-const rcpt = await t.pub.waitForTransactionReceipt({ hash });
-if (rcpt.status !== "success" || !rcpt.contractAddress) throw new Error(`Deployment failed: ${hash}`);
-const address = getAddress(rcpt.contractAddress);
-console.log(`  deployed: ${address} (tx ${hash}, block ${rcpt.blockNumber})`);
+  hash = await t.wallet.deployContract({
+    account: t.wallet.account!,
+    chain: t.wallet.chain,
+    abi: CISTA_VERIFIER_ABI,
+    bytecode: CISTA_VERIFIER_BYTECODE,
+    gas: GAS,
+    maxFeePerGas: MAX_FEE_PER_GAS,
+    maxPriorityFeePerGas: 1_000_000_000n,
+  });
+  const rcpt = await t.pub.waitForTransactionReceipt({ hash });
+  if (rcpt.status !== "success" || !rcpt.contractAddress) throw new Error(`Deployment failed: ${hash}`);
+  address = getAddress(rcpt.contractAddress);
+  block = rcpt.blockNumber;
+  console.log(`  deployed: ${address} (tx ${hash}, block ${rcpt.blockNumber})`);
+}
 
 // --- Check it against a real pay run signed in QoreX ------------------------
 const res = await fetch(`${CISTA}/api/runs/${RUN}`);
@@ -68,8 +79,8 @@ let refused = "";
 try {
   await t.pub.readContract({ address, abi: CISTA_VERIFIER_ABI, functionName: "verifyRun", args: [{ ...header, totalPayout: header.totalPayout + 1n }, pqSig] });
 } catch (e) {
-  const data = (e as { cause?: { data?: `0x${string}` }; data?: `0x${string}` }).cause?.data ?? (e as { data?: `0x${string}` }).data;
-  refused = data ? decodeErrorResult({ abi: CISTA_VERIFIER_ABI, data }).errorName : (e as Error).message.split("\n")[0]!;
+  const revert = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
+  refused = (revert instanceof ContractFunctionRevertedError && revert.data?.errorName) || (e as Error).message.split("\n")[0]!;
 }
 if (!refused) throw new Error("a run with a raised total was accepted: do not use this deployment");
 console.log(`  same run with the total raised by 1: refused (${refused})`);
@@ -77,6 +88,6 @@ console.log(`  same run with the total raised by 1: refused (${refused})`);
 mkdirSync("../../drill-results", { recursive: true });
 writeFileSync(
   "../../drill-results/deployment-testnet.json",
-  JSON.stringify({ chainId: "qorechain-diana", evmChainId: 9800, CistaVerifier: address, deployTx: hash, block: Number(rcpt.blockNumber), checkedAgainstRun: RUN, verifyRunGas: Number(gas) }, null, 2) + "\n",
+  JSON.stringify({ chainId: "qorechain-diana", evmChainId: 9800, CistaVerifier: address, deployTx: hash, block: block === undefined ? undefined : Number(block), checkedAgainstRun: RUN, verifyRunGas: Number(gas), refusedTampered: refused }, null, 2) + "\n",
 );
 console.log(`\nWrote drill-results/deployment-testnet.json. Claude reads it from there.`);
