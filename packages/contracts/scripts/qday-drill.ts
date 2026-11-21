@@ -5,10 +5,12 @@
  *
  *   pnpm --filter @cista/contracts qday:drill
  *
- * The "victim" is the throwaway account in .env.seed: the drill uses only its
- * classical private key, plus a fresh ML-DSA-87 key of the attacker's own.
- * Nothing here can move value: every attempt is meant to be refused, and the
- * one transfer tried is 0.01 test QOR to the attacker's own throwaway address.
+ * The "victim" is the throwaway account in .env.seed, playing an employer: the
+ * attacks use only its classical private key. The attacker gets a fresh
+ * account of their own with a registered ML-DSA-87 key (funded with 0.2 test
+ * QOR by the victim, legitimately, before the attacks start), so a forged
+ * proof of pay gets as far as a real employee's would. Every attack is meant to
+ * be refused; the transfers tried are 0.01 test QOR to the attacker.
  *
  * Writes the results to drill-results/qday-drill.md (git-ignored), for audit.md.
  */
@@ -28,10 +30,10 @@ import {
 } from "@phoenix-2203/cista";
 import { classicalKeyFromPrivate, pqKeyFromSeed, signMessage } from "@qorechain/qoresign";
 import { EthNativeSigner, deriveUnifiedAccount } from "@qorechain/sdk";
-import { decodeErrorResult, getAddress, hexToBytes } from "viem";
+import { BaseError, ContractFunctionRevertedError, getAddress, hexToBytes } from "viem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { CISTA_VERIFIER_ABI } from "../src/artifact";
-import { CHAIN_ID, NATIVE_FEE, REST, rest } from "./lib/testnet";
+import { CHAIN_ID, NATIVE_FEE, REST, registerPqcKey, rest, sendQor } from "./lib/testnet";
 import { createPublicClient, http } from "viem";
 import { qorechainTestnet } from "@qorechain/evm";
 
@@ -39,8 +41,7 @@ import { qorechainTestnet } from "@qorechain/evm";
 const OUT = "../../drill-results";
 const CISTA = process.env.CISTA_URL ?? "https://cista.duckdns.org";
 const CISTA_HOST = new URL(CISTA).host;
-/** A real employer and a real paid run, to impersonate (Cista's first fUSD run). */
-const REAL_EMPLOYER = "qor1q3tsylvnewfylq576rm5zp08n5yfjv3xd9rf6e";
+/** A real Cista payment (the first fUSD run), for the forged proof to point at. */
 const REAL_PAYMENT = "A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5";
 
 const mnemonic = (process.env.E2E_MNEMONIC ?? process.env.SEED_MNEMONIC)?.trim();
@@ -65,6 +66,10 @@ async function attempt(target: string, what: string, expected: string, run: () =
     results.push({ n, target, attempt: what, expected, actual: `error: ${(e as Error).message.split("\n")[0]}`, blocked: true });
   }
   const last = results.at(-1)!;
+  // The SDK names a refusal by the generic Cosmos SDK error for its code number;
+  // the chain's own (pqc) reason is the part in brackets.
+  const pqc = /\((pqc [^)]*?(?:\([^)]*\)[^)]*)*)\) \(tx ([0-9A-F]{64})\)/.exec(last.actual);
+  if (pqc) last.actual = `refused by the chain: "${pqc[1]}" (tx ${pqc[2]})`;
   console.log(`${String(n).padStart(2)}. ${last.blocked ? "BLOCKED" : "NOT BLOCKED"}  ${what}\n      ${last.actual}`);
 }
 
@@ -136,10 +141,16 @@ await attempt("Cista server", "Read the victim's sealed payslips without a sessi
 });
 
 // ------------------------------------------------------- forged proof of pay
+// The attacker's own account, set up honestly: funded, ML-DSA-87 key registered.
+console.log("\nSetting up the attacker's own account (honest transactions):");
+console.log(`  0.2 test QOR from the victim: ${await sendQor(victim, attacker.cosmos, 200_000n)}`);
+console.log(`  attacker registers its ML-DSA-87 key: ${await registerPqcKey(attacker)}\n`);
+const attackerClassical = classicalKeyFromPrivate(hexToBytes(attacker.privateKey as `0x${string}`), "eth_secp256k1");
+
 const forgedRun = (() => {
   const slip = {
     version: 1 as const,
-    employer: { address: REAL_EMPLOYER, name: "myPh0enix" },
+    employer: { address: victim.cosmos, name: "Victim Employer Ltd" },
     employee: { address: attacker.cosmos, name: "Attacker", staffId: "X", role: "CEO", employedSince: "2020-01-01" },
     period: "2026-11",
     payDate: "2026-11-21",
@@ -152,18 +163,18 @@ const forgedRun = (() => {
   };
   const run = buildPayRun(CHAIN_ID, [{ slip, seed: crypto.getRandomValues(new Uint8Array(32)) }]);
   const body = unsignedRun(run);
-  // The attacker can't produce the real employer's ML-DSA-87 signature, so signs with their own key.
-  const signed: SignedRun = { ...body, signature: signMessage({ chainId: CHAIN_ID, signer: REAL_EMPLOYER, data: signedRunStatement(body), classicalKey: stolenClassical, pqKey: attackerPq }) };
+  // The attacker has the employer's classical key but not its ML-DSA-87 key, so the post-quantum half is the attacker's own.
+  const signed: SignedRun = { ...body, signature: signMessage({ chainId: CHAIN_ID, signer: victim.cosmos, data: signedRunStatement(body), classicalKey: stolenClassical, pqKey: attackerPq }) };
   return { run, signed };
 })();
 
-await attempt("Proof of pay", `A forged proof: "earns at least $25,000 a month at ${REAL_EMPLOYER.slice(0, 12)}…", pointing at a real Cista payment`, "refused: neither the employer's nor a registered employee's ML-DSA-87 signature", async () => {
+await attempt("Proof of pay", "A forged proof of \"at least $25,000 a month\" from the victim employer, signed by the attacker's own (registered) account, pointing at a real Cista payment", "refused at the employer's signature", async () => {
   const { run, signed } = forgedRun;
   const disclosure = createDisclosure(run, run.slips[0]!, ["employer.name", "net.atLeast.2500000"]);
   const terms = { audience: "Any Bank", expires: "2030-01-01T00:00:00Z" };
   const bundle: ProofBundle = {
     v: 1,
-    proof: { disclosure, terms, signature: signMessage({ chainId: CHAIN_ID, signer: attacker.cosmos, data: proofStatement(disclosure, terms), classicalKey: classicalKeyFromPrivate(hexToBytes(attacker.privateKey as `0x${string}`), "eth_secp256k1"), pqKey: attacker.pqc }) },
+    proof: { disclosure, terms, signature: signMessage({ chainId: CHAIN_ID, signer: attacker.cosmos, data: proofStatement(disclosure, terms), classicalKey: attackerClassical, pqKey: attacker.pqc }) },
     run: signed,
     paymentTx: REAL_PAYMENT,
   };
@@ -175,7 +186,7 @@ await attempt("Proof of pay", `A forged proof: "earns at least $25,000 a month a
 });
 
 // ------------------------------------------------------- on-chain verifier
-const deployment = existsSync(OUT + "/deployment-testnet.json") ? (JSON.parse(readFileSync(OUT + "/deployment-testnet.json", "utf8")) as { CistaVerifier: string }) : null;
+const deployment = existsSync("deployments/testnet.json") ? (JSON.parse(readFileSync("deployments/testnet.json", "utf8")) as { CistaVerifier: string }) : null;
 if (deployment) {
   const pub = createPublicClient({ chain: qorechainTestnet, transport: http() });
   await attempt("CistaVerifier", "The same forged run submitted to the on-chain verifier", "revert BadSignature", async () => {
@@ -189,8 +200,9 @@ if (deployment) {
       });
       return { blocked: false, actual: "ACCEPTED" };
     } catch (e) {
-      const data = (e as { cause?: { data?: `0x${string}` } }).cause?.data;
-      return { blocked: true, actual: data ? `revert ${decodeErrorResult({ abi: CISTA_VERIFIER_ABI, data }).errorName}` : (e as Error).message.split("\n")[0]! };
+      const revert = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
+      const name = revert instanceof ContractFunctionRevertedError ? revert.data?.errorName : undefined;
+      return { blocked: true, actual: name ? `revert ${name}` : (e as Error).message.split("\n")[0]! };
     }
   });
 } else {
