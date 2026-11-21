@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { grossPay, netPay, payslipFields, PayslipError, validatePayslip } from "../src/payslip";
+import { grossPay, netPay, payslipFields, PayslipError, totalDeductions, validatePayslip, type Payslip } from "../src/payslip";
 import { ADDR, naira, sampleSlip } from "./fixtures";
 
 describe("payslip totals", () => {
@@ -81,5 +81,40 @@ describe("payslipFields", () => {
     const relabelled = sampleSlip();
     relabelled.earnings[0] = { ...relabelled.earnings[0]!, label: "Base pay" };
     expect(payslipFields(relabelled)).toEqual(payslipFields(sampleSlip()));
+  });
+});
+
+describe("pay frequency and the year so far", () => {
+  const withYtd = (over: Partial<Payslip> = {}): Payslip => {
+    const base = sampleSlip();
+    return {
+      ...base,
+      payFrequency: "monthly",
+      yearToDate: { gross: grossPay(base) * 11n, deductions: totalDeductions(base) * 11n, thresholds: [100_000_000n, 1_000_000_000n] },
+      ...over,
+    };
+  };
+
+  it("leaves older payslips' fields exactly as they were", () => {
+    const names = payslipFields(sampleSlip()).map((f) => f.name);
+    expect(names.some((n) => n === "payFrequency" || n.startsWith("ytd."))).toBe(false);
+  });
+
+  it("commits to the frequency and the year-to-date totals and bands", () => {
+    const slip = withYtd();
+    const f = Object.fromEntries(payslipFields(slip).map((x) => [x.name, x.value]));
+    expect(f.payFrequency).toBe("monthly");
+    expect(f["ytd.gross"]).toBe((grossPay(slip) * 11n).toString());
+    expect(f["ytd.net"]).toBe(((grossPay(slip) - totalDeductions(slip)) * 11n).toString());
+    expect(f["ytd.net.atLeast.100000000"]).toBe(netPay(slip) * 11n >= 100_000_000n ? "yes" : "no");
+    expect(f["ytd.net.atLeast.1000000000"]).toBe(netPay(slip) * 11n >= 1_000_000_000n ? "yes" : "no");
+  });
+
+  it("refuses a year so far smaller than this payslip, or an unknown frequency", () => {
+    const base = sampleSlip();
+    expect(() => validatePayslip(withYtd({ yearToDate: { gross: grossPay(base) - 1n, deductions: 0n, thresholds: [] } }))).toThrow(PayslipError);
+    expect(() => validatePayslip(withYtd({ yearToDate: { gross: grossPay(base), deductions: totalDeductions(base) + grossPay(base), thresholds: [] } }))).toThrow(PayslipError);
+    expect(() => validatePayslip(withYtd({ payFrequency: "daily" as never }))).toThrow(PayslipError);
+    expect(() => validatePayslip(withYtd({ yearToDate: { gross: grossPay(base) * 2n, deductions: totalDeductions(base) * 2n, thresholds: [5n, 5n] } }))).toThrow(PayslipError);
   });
 });

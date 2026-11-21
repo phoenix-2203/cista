@@ -3,7 +3,7 @@
  * numbers lose precision past 2^53 and bigint does not serialise at all.
  * Parsing is strict: unknown keys are refused, and the result is validated.
  */
-import { validatePayslip, type PayLine, type Payslip } from "./payslip";
+import { PAY_FREQUENCIES, validatePayslip, type PayFrequency, type PayLine, type Payslip } from "./payslip";
 
 export interface PayLineJson {
   code: string;
@@ -23,6 +23,8 @@ export interface PayslipJson {
   employerContributions: PayLineJson[];
   payout: { address: string; denom: string; amount: string };
   thresholds: string[];
+  payFrequency?: string;
+  yearToDate?: { gross: string; deductions: string; thresholds: string[] };
 }
 
 export class CodecError extends Error {
@@ -47,13 +49,17 @@ export function payslipToJson(slip: Payslip): PayslipJson {
     employerContributions: slip.employerContributions.map(line),
     payout: { address: slip.payout.address, denom: slip.payout.denom, amount: slip.payout.amount.toString() },
     thresholds: slip.thresholds.map(String),
+    ...(slip.payFrequency !== undefined ? { payFrequency: slip.payFrequency } : {}),
+    ...(slip.yearToDate !== undefined
+      ? { yearToDate: { gross: slip.yearToDate.gross.toString(), deductions: slip.yearToDate.deductions.toString(), thresholds: slip.yearToDate.thresholds.map(String) } }
+      : {}),
   };
 }
 
-function obj(label: string, v: unknown, keys: string[]): Record<string, unknown> {
+function obj(label: string, v: unknown, keys: string[], optional: string[] = []): Record<string, unknown> {
   if (typeof v !== "object" || v === null || Array.isArray(v)) throw new CodecError(`${label} must be an object`);
   const o = v as Record<string, unknown>;
-  for (const k of Object.keys(o)) if (!keys.includes(k)) throw new CodecError(`${label} has an unknown key "${k}"`);
+  for (const k of Object.keys(o)) if (!keys.includes(k) && !optional.includes(k)) throw new CodecError(`${label} has an unknown key "${k}"`);
   for (const k of keys) if (!(k in o)) throw new CodecError(`${label} is missing "${k}"`);
   return o;
 }
@@ -85,7 +91,7 @@ export function payslipFromJson(json: unknown): Payslip {
   const o = obj("payslip", json, [
     "version", "employer", "employee", "period", "payDate", "currency",
     "earnings", "deductions", "employerContributions", "payout", "thresholds",
-  ]);
+  ], ["payFrequency", "yearToDate"]);
   if (o.version !== 1) throw new CodecError("unsupported payslip version");
   const employer = obj("employer", o.employer, ["address", "name"]);
   const employee = obj("employee", o.employee, ["address", "name", "staffId", "role", "employedSince"]);
@@ -109,6 +115,19 @@ export function payslipFromJson(json: unknown): Payslip {
     payout: { address: str("payout.address", payout.address), denom: str("payout.denom", payout.denom), amount: int("payout.amount", payout.amount) },
     thresholds: arr("thresholds", o.thresholds).map((t, i) => int(`thresholds[${i}]`, t)),
   };
+  if (o.payFrequency !== undefined) {
+    const f = str("payFrequency", o.payFrequency);
+    if (!(PAY_FREQUENCIES as readonly string[]).includes(f)) throw new CodecError("payFrequency is not a known frequency");
+    slip.payFrequency = f as PayFrequency;
+  }
+  if (o.yearToDate !== undefined) {
+    const y = obj("yearToDate", o.yearToDate, ["gross", "deductions", "thresholds"]);
+    slip.yearToDate = {
+      gross: int("yearToDate.gross", y.gross),
+      deductions: int("yearToDate.deductions", y.deductions),
+      thresholds: arr("yearToDate.thresholds", y.thresholds).map((t, i) => int(`yearToDate.thresholds[${i}]`, t)),
+    };
+  }
   try {
     validatePayslip(slip);
   } catch (e) {

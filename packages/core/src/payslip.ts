@@ -47,6 +47,25 @@ export interface Payslip {
    * employee can prove "net pay is at least X" without revealing the amount.
    */
   thresholds: bigint[];
+  /** How often this person is paid. Optional: payslips made before it existed leave it out. */
+  payFrequency?: PayFrequency;
+  /** Totals for the calendar year so far, this payslip included. Optional, like payFrequency. */
+  yearToDate?: YearToDate;
+}
+
+export const PAY_FREQUENCIES = ["weekly", "biweekly", "semimonthly", "monthly"] as const;
+export type PayFrequency = (typeof PAY_FREQUENCIES)[number];
+
+export interface YearToDate {
+  /** Gross pay this calendar year, minor units. */
+  gross: bigint;
+  /** Deductions this calendar year, minor units. */
+  deductions: bigint;
+  /**
+   * Year-to-date net-pay thresholds the employer answers yes or no to, so an
+   * employee can prove "earned at least X this year" without the amount.
+   */
+  thresholds: bigint[];
 }
 
 /** One committed field: a dotted name and its canonical string value. */
@@ -111,6 +130,20 @@ export function netPay(slip: Payslip): bigint {
   return grossPay(slip) - totalDeductions(slip);
 }
 
+export function ytdNet(ytd: YearToDate): bigint {
+  return ytd.gross - ytd.deductions;
+}
+
+function thresholdList(label: string, list: bigint[]): void {
+  if (list.length > MAX_THRESHOLDS) throw new PayslipError(`at most ${MAX_THRESHOLDS} ${label}`);
+  const seen = new Set<bigint>();
+  for (const t of list) {
+    if (t <= 0n) throw new PayslipError(`${label} must be positive`);
+    if (seen.has(t)) throw new PayslipError(`${label} must be distinct`);
+    seen.add(t);
+  }
+}
+
 /** Throws a PayslipError describing the first problem found. */
 export function validatePayslip(slip: Payslip): void {
   if (slip.version !== PAYSLIP_VERSION) throw new PayslipError(`unsupported payslip version ${String(slip.version)}`);
@@ -141,6 +174,16 @@ export function validatePayslip(slip: Payslip): void {
     if (seen.has(t)) throw new PayslipError("thresholds must be distinct");
     seen.add(t);
   }
+  if (slip.payFrequency !== undefined && !PAY_FREQUENCIES.includes(slip.payFrequency)) {
+    throw new PayslipError(`payFrequency must be one of ${PAY_FREQUENCIES.join(", ")}`);
+  }
+  if (slip.yearToDate !== undefined) {
+    const y = slip.yearToDate;
+    if (y.gross < grossPay(slip)) throw new PayslipError("year-to-date gross is less than this payslip's gross pay");
+    if (y.deductions < totalDeductions(slip)) throw new PayslipError("year-to-date deductions are less than this payslip's deductions");
+    if (ytdNet(y) < netPay(slip)) throw new PayslipError("year-to-date net is less than this payslip's net pay");
+    thresholdList("year-to-date thresholds", y.thresholds);
+  }
 }
 
 /**
@@ -163,6 +206,8 @@ export function payslipFields(slip: Payslip): Field[] {
     { name: "payDate", value: slip.payDate },
     { name: "currency", value: slip.currency },
   ];
+  // Added after the first payslips: only present when set, so older payslips keep the same fields.
+  if (slip.payFrequency !== undefined) fields.push({ name: "payFrequency", value: slip.payFrequency });
   for (const l of slip.earnings) fields.push({ name: `earning.${l.code}`, value: l.amount.toString() });
   fields.push({ name: "gross", value: grossPay(slip).toString() });
   for (const l of slip.deductions) fields.push({ name: `deduction.${l.code}`, value: l.amount.toString() });
@@ -176,5 +221,14 @@ export function payslipFields(slip: Payslip): Field[] {
   fields.push({ name: "payout.amount", value: slip.payout.amount.toString() });
   const sorted = [...slip.thresholds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   for (const t of sorted) fields.push({ name: `net.atLeast.${t}`, value: net >= t ? "yes" : "no" });
+  if (slip.yearToDate !== undefined) {
+    const y = slip.yearToDate;
+    const yNet = ytdNet(y);
+    fields.push({ name: "ytd.gross", value: y.gross.toString() });
+    fields.push({ name: "ytd.deductions", value: y.deductions.toString() });
+    fields.push({ name: "ytd.net", value: yNet.toString() });
+    const ySorted = [...y.thresholds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    for (const t of ySorted) fields.push({ name: `ytd.net.atLeast.${t}`, value: yNet >= t ? "yes" : "no" });
+  }
   return fields;
 }

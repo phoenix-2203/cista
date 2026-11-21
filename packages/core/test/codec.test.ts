@@ -32,3 +32,20 @@ describe("payslip JSON", () => {
     expect(() => payslipFromJson([])).toThrow(CodecError);
   });
 });
+
+describe("payslip JSON with the optional fields", () => {
+  it("round-trips pay frequency and the year so far, and leaves them out when unset", () => {
+    const base = sampleSlip();
+    expect("payFrequency" in payslipToJson(base)).toBe(false);
+    expect("yearToDate" in payslipToJson(base)).toBe(false);
+    const slip = { ...base, payFrequency: "biweekly" as const, yearToDate: { gross: 10n ** 12n, deductions: 10n ** 11n, thresholds: [5n * 10n ** 10n] } };
+    expect(payslipFromJson(JSON.parse(JSON.stringify(payslipToJson(slip))))).toEqual(slip);
+  });
+
+  it("refuses an unknown frequency or a malformed year so far", () => {
+    const json = payslipToJson(sampleSlip());
+    expect(() => payslipFromJson({ ...json, payFrequency: "daily" })).toThrow(CodecError);
+    expect(() => payslipFromJson({ ...json, yearToDate: { gross: "1", deductions: "0" } })).toThrow(CodecError);
+    expect(() => payslipFromJson({ ...json, yearToDate: { gross: "1", deductions: "0", thresholds: [], extra: 1 } })).toThrow(CodecError);
+  });
+});
