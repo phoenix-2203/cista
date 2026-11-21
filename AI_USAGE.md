@@ -25,7 +25,7 @@ No AI service is called at runtime. Cista has no model and no API key.
 
 ## How the AI's work is checked
 
-- **Tests and types on every change:** `pnpm test` and type checks before each commit (210 tests so far, plus a browser check of the proof page, a live Q-Day drill and a live check of the contract).
+- **Tests and types on every change:** `pnpm test` and type checks before each commit (213 tests so far, plus a browser check of the proof page, a live Q-Day drill and a live check of the contract).
 - **Independent test vectors:** the pinned commitment and Merkle root values were recomputed in Python, separately from the TypeScript code.
 - **Attacks in the tests, not just happy paths:** a one-kobo change, fields spliced from another payslip, envelopes filed under the wrong employee, classical-only signatures (what a stolen ECDSA key can make), forged signers, payments that pay less than signed.
 - **Live, not mocked, where it matters:** the contract was checked against a real pay run signed in QoreX, and the Q-Day drill ran its 8 attacks against the live testnet and site ([docs/qday-drill.md](docs/qday-drill.md)).
