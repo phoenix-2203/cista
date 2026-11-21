@@ -11,7 +11,7 @@
 
 **Sealed payroll on QoreChain: everyone gets paid, only you see your payslip.**
 
-Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 in the employer's browser before they go anywhere. One hybrid-signed transaction pays the whole team in fUSD. And an employee can prove one fact about their pay (who employs them, that they earn at least $2,500 a month, that they earn between $2,500 and $3,000) to a lender or landlord without handing over the payslip. The lender checks it with no wallet, and a contract can check it on chain.
+Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 in the employer's browser before they go anywhere. One hybrid-signed transaction pays the whole team in fUSD. And an employee can prove one fact about their pay (who employs them, that they earn at least $2,500 a month, that they earn between $2,500 and $3,000) to anyone who needs it, without handing over the payslip. They check it with no wallet, and a contract can check it on chain.
 
 - **Try it:** https://cista.duckdns.org (QoreChain testnet; sign in with the QoreX browser extension)
 - **Built for:** [Build Before Q-Day](https://build.qorechain.io), the **Encrypted Apps** track
@@ -37,7 +37,7 @@ Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 in the emp
 
 A payslip is one of the most sensitive files a company holds: salary, tax, pension, role, start date. On a public chain, paying salaries normally publishes them. Encrypting them with today's public-key cryptography only delays that: anything copied now can be opened once a quantum computer breaks the key exchange ("harvest now, decrypt later").
 
-Confidential payroll fixes the first part but makes a new problem. Employees still have to prove their income to banks, landlords and embassies, and a confidential salary is one nobody else can verify. A developer on Zama's own forum put it plainly: with FHE payroll, ["the salary is confidential… but unverifiable to third parties"](https://community.zama.org/t/confidential-payroll/4350). Today the employee's only option is to hand over the whole payslip, which shows far more than the lender needs and is easy to fake.
+Confidential payroll fixes the first part but makes a new problem. Employees still have to prove their income, and a confidential salary is one nobody else can verify. A developer on Zama's own forum put it plainly: with FHE payroll, ["the salary is confidential… but unverifiable to third parties"](https://community.zama.org/t/confidential-payroll/4350). Today the employee's only option is to hand over the whole payslip, which shows far more than is needed and is easy to fake.
 
 ## What Cista does
 
@@ -45,7 +45,7 @@ Confidential payroll fixes the first part but makes a new problem. Employees sti
 | --- | --- |
 | **Employers** | A team table (or a CSV), five steps: check everyone's keys and the balance, sign the pay run once in QoreX, seal and upload the payslips, pay everyone in one transaction, and have the payment checked on chain. Next month, start from any earlier run: the employer's key opens its own sealed copy and fills the table in. Year-to-date totals add themselves up. Re-seal past payslips for an employee who lost their key. |
 | **Employees** | Payslips that open only in their browser, each checked against the pay run their employer signed, with pay frequency and the year so far. A proof of pay made in three steps: what to prove, who it's for and until when, and a preview of exactly what they will see. Unlock with a passkey instead of a password. |
-| **Lenders and landlords** | A link that opens a check page: plain sentences ("Net pay for 2026-11 was at least $2,500.00 and less than $3,000.00"), who the proof was made for, every check that passed, and a "Check on chain" button. No wallet, no account. |
+| **Whoever checks a proof** | A link that opens a check page: plain sentences ("Net pay for 2026-11 was at least $2,500.00 and less than $3,000.00"), who the proof was made for, every check that passed, and a "Check on chain" button. No wallet, no account. |
 | **Other contracts** | `CistaVerifier`, a contract that checks the same proof with QoreChain's own post-quantum precompiles. |
 
 ## Try it in five minutes
@@ -74,7 +74,7 @@ slip roots     ─────────────────────�
 
 ## Proof of pay
 
-The employee picks one of the verification types lenders and landlords already ask for (the industry splits them into verification of employment and verification of income), or a custom set of lines:
+The employee picks one of the standard verification types (the industry splits them into verification of employment and verification of income), or a custom set of lines:
 
 | Proof type | Shows | Never shows |
 | --- | --- | --- |
@@ -163,7 +163,7 @@ Full detail in [audit.md](audit.md). In short:
 - **One QoreX account is one company,** because proofs name the employer's address. Teams within a company share the account and each keeps its own runs to start from.
 - **About 120 people per pay run** fit in one transaction (QoreX caps gas at 5,000,000; the hint is 150,000 + 40,000 a person). A larger team would need the run split into several payments, which isn't built.
 - **The server** knows which addresses an employer pays and when, and can withhold payslips. It can't read them, swap keys, move envelopes or forge payments without being caught.
-- **The browser is the trust boundary:** a hacked server could serve a changed web app. "Check on chain" and `CistaVerifier` let a lender rely on the contract instead.
+- **The browser is the trust boundary:** a hacked server could serve a changed web app. "Check on chain" and `CistaVerifier` let the person checking rely on the contract instead.
 - **Pay bands are fixed in advance** (23 of them); any range at all would need a zero-knowledge proof.
 - **If both the employee and the employer lose their keys and phrases,** nobody can open those payslips. That's what sealing means.
 
@@ -196,7 +196,7 @@ flowchart TB
 | `packages/core/src/payslip.ts`, `codec.ts` | The payslip model and its strict JSON form; amounts as integers |
 | `packages/core/src/commit.ts`, `merkle.ts`, `run.ts` | Salted field commitments, the padded SHA-256 Merkle tree, slip and run roots, the memo and the signed statement |
 | `packages/core/src/seal.ts` | Sealing and opening payslips with QoreSeal, bound to their place, padded |
-| `packages/core/src/disclose.ts`, `sign.ts`, `verify.ts` | Selective disclosure, the signed proof statement, and the full check a lender runs |
+| `packages/core/src/disclose.ts`, `sign.ts`, `verify.ts` | Selective disclosure, the signed proof statement, and the full check a verifier runs |
 | `packages/core/src/payment.ts`, `bankmsg.ts`, `network.ts` | Reading the payment from the chain; encoding `MsgMultiSend` / `MsgSend` for QoreX; the REST chain reader |
 | `packages/core/src/recovery.ts`, `vault.ts`, `signin.ts` | The 24-word recovery phrase, the Argon2id key vault, the sign-in statement |
 | `packages/contracts/contracts/CistaVerifier.sol` | The on-chain check; on testnet at [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) |
