@@ -65,7 +65,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
   const audience = `${purpose}: ${who.trim()}`;
   const make = () =>
     run(async () => {
-      if (!who.trim()) throw new Error("say who the proof is for, e.g. the bank and your application number");
+      if (!who.trim()) throw new Error("say who the proof is for, and a reference if you have one");
       if (kind === "range" && (!from || !to)) throw new Error("pick both ends of the range");
       const disclosure = createDisclosure(entry.opened!.run, slip, picked);
       const terms = { audience, expires: new Date(`${expires}T23:59:59Z`).toISOString() };
@@ -159,7 +159,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
         </div>
         <div className="field">
           <label htmlFor="who">Name and reference <span className="hint">named in what you sign</span></label>
-          <input id="who" placeholder="Zenith Bank, application 4471" maxLength={100} value={who} onChange={(e) => { setWho(e.target.value); reset(); }} />
+          <input id="who" placeholder="Who it is for, and a reference" maxLength={100} value={who} onChange={(e) => { setWho(e.target.value); reset(); }} />
         </div>
         <div className="field">
           <label htmlFor="exp">Valid until</label>

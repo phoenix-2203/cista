@@ -1,6 +1,6 @@
 /**
  * Payslip fields in plain language: names, values, groups, the standard proof
- * types, and the sentences a lender reads.
+ * types, and the sentences a verifier reads.
  *
  * The proof types follow the industry's own terms. Background-check and
  * lending tools (The Work Number, Truv, Argyle) split requests into
@@ -158,7 +158,7 @@ export function presetFields(kind: ProofKind, values: Record<string, string>, op
 }
 
 /**
- * What a set of revealed fields proves, as sentences a lender reads at a
+ * What a set of revealed fields proves, as sentences a verifier reads at a
  * glance. Bands answered "yes" and "no" combine into a range.
  */
 export function claims(fields: Record<string, string>): string[] {
