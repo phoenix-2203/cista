@@ -43,8 +43,8 @@ Confidential payroll fixes the first part but makes a new problem. Employees sti
 
 | For | What they get |
 | --- | --- |
-| **Employers** | A team table (or a CSV), five steps: check everyone's keys and the balance, sign the pay run once in QoreX, seal and upload the payslips, pay everyone in one transaction, and have the payment checked on chain. Re-seal past payslips for an employee who lost their key. |
-| **Employees** | Payslips that open only in their browser, each checked against the pay run their employer signed. A proof of pay made in three steps: what to prove, who it's for and until when, and a preview of exactly what they will see. |
+| **Employers** | A team table (or a CSV), five steps: check everyone's keys and the balance, sign the pay run once in QoreX, seal and upload the payslips, pay everyone in one transaction, and have the payment checked on chain. Next month, start from any earlier run: the employer's key opens its own sealed copy and fills the table in. Year-to-date totals add themselves up. Re-seal past payslips for an employee who lost their key. |
+| **Employees** | Payslips that open only in their browser, each checked against the pay run their employer signed, with pay frequency and the year so far. A proof of pay made in three steps: what to prove, who it's for and until when, and a preview of exactly what they will see. Unlock with a passkey instead of a password. |
 | **Lenders and landlords** | A link that opens a check page: plain sentences ("Net pay for 2026-11 was at least $2,500.00 and less than $3,000.00"), who the proof was made for, every check that passed, and a "Check on chain" button. No wallet, no account. |
 | **Other contracts** | `CistaVerifier`, a contract that checks the same proof with QoreChain's own post-quantum precompiles. |
 
@@ -81,10 +81,11 @@ The employee picks one of the verification types lenders and landlords already a
 | **Employment** | employer, role, employed since, on the payroll for the period | any pay |
 | **Income above an amount** | employer, period, "net pay is at least $X" | the amount |
 | **Income in a range** | employer, period, "at least $X" and "less than $Y" | the amount |
+| **Earned this year** | employer, period, "net pay so far this year is at least $X" | the total |
 | **Exact pay** | net and gross pay, and the payment that reached the employee on chain | anything else |
-| **Custom** | the lines the employee ticks, grouped as Employment, Pay, Paid on chain, Payslip lines | the rest |
+| **Custom** | the lines the employee ticks, grouped as Employment, Pay, Year to date, Paid on chain, Payslip lines | the rest |
 
-Every payslip answers "is net pay at least $X?" for a ladder of 23 bands from $250 to $50,000 a month, so a range is one band answered yes plus the next answered no. The proof also always shows the employee's account and the currency.
+Every payslip answers "is net pay at least $X?" for a ladder of 23 bands from $250 to $50,000 a pay period, so a range is one band answered yes plus the next answered no. It also carries year-to-date gross, deductions and net, added up from the employer's own copies of earlier paid runs that calendar year, and answers 17 year-to-date bands from $5,000 to $500,000. The proof also always shows the employee's account and the currency.
 
 The employee signs each proof for a named recipient and an expiry date (both in the signed text). The check page, with no wallet:
 
@@ -111,7 +112,10 @@ require(employee == msg.sender, "not your payslip");
 ## Keys, recovery and re-sealing
 
 - **Keys come from a 24-word recovery phrase,** shown once (QoreSeal's standard derivation from a BIP-39 phrase). It is not the QoreX seed phrase and holds no funds: it only opens payslips.
-- **A password locks a copy in the browser** (PBKDF2-SHA-256, 600,000 rounds; AES-256-GCM; bound to the account). Once unlocked, the key stays unlocked in that tab only, wrapped by a non-extractable WebCrypto key, until the tab closes or sits idle for 30 minutes.
+- **The phrase is checked before it counts:** three of its words are asked back once it's off screen, so a phrase that wasn't written down is caught at once.
+- **A password locks a copy in the browser** with Argon2id (64 MiB, 3 passes, RFC 9106; AES-256-GCM; bound to the account). Argon2id is memory-hard, which makes guessing on graphics cards expensive, and it runs in plain JavaScript, so the strict CSP needs no WebAssembly exception. Vaults made earlier with PBKDF2 (600,000 rounds) still open and are re-locked with Argon2id on their next unlock. New passwords get a strength meter; weak ones are refused.
+- **Or a passkey** (Face ID, Touch ID, Windows Hello, a security key): the WebAuthn PRF extension gives a secret only after the person is verified, and HKDF turns it into the AES key that wraps the seed in that browser. Nothing goes to the server; the password and the phrase keep working.
+- **Once unlocked,** the key stays unlocked in that tab only, wrapped by a non-extractable WebCrypto key, until the tab closes or sits idle for 30 minutes.
 - **Forgot the password?** The phrase rebuilds the same key, and every payslip opens again (the model [Proton uses](https://proton.me/support/recover-encrypted-messages-files) for data recovery).
 - **Lost both?** The employee makes a new key, and the employer presses Re-seal: they open their own copy of each payslip and seal it again to the new key.
 - **Key cards.** Each person publishes a QoreSeal recipient card: their ML-KEM-1024 key's SHA3-256 and their X25519 key, signed in QoreX. Employers only seal to cards that verify against the employee's ML-DSA-87 key registered on chain, so a server that swaps in its own key is caught. (QoreX refuses `MsgRegisterKEMKey` from websites, "managed by the wallet itself", so the signed card carries the ML-KEM key; a key in the chain's KEM registry is used when an account has one and no card.)
@@ -135,12 +139,12 @@ The first run paid in QOR; pay runs now pay in fUSD.
 | | Payslip content | Pay amounts on chain | Prove income to a third party | Third party needs | Tied to the real payment | Post-quantum |
 | --- | --- | --- | --- | --- | --- | --- |
 | Plain on-chain payroll | public | public | show the transactions | an explorer | yes | no |
-| Zama / Bron FHE payroll | encrypted | encrypted | time-limited decryption for another wallet, [planned](https://community.zama.org/t/confidential-payroll/4350); the value itself is revealed | a wallet | — | FHE (lattice-based) |
+| Zama / Bron FHE payroll | no payslip: the amount only | encrypted | time-limited decryption for another wallet, [planned](https://community.zama.org/t/confidential-payroll/4350); the value itself is revealed | a wallet | — | FHE (lattice-based) |
 | [X-PACT](https://github.com/X-PACT/confidential-payroll) (Zama submission) | encrypted | encrypted | yes/no for a range the employee picks, decrypted by Zama's gateway | an Ethereum address | points to the run | FHE (lattice-based) |
 | Employment-verification services | held by the service | — | the whole salary record, shared by the employer | an account, a fee | no | no |
 | **Cista** | **sealed (ML-KEM-1024 + X25519)** | public | **any lines, a band or a range; signed for one recipient, with an expiry** | **nothing (or a contract call)** | **yes** | **ML-KEM-1024, ML-DSA-87** |
 
-Cista keeps amounts public on chain, where FHE payrolls hide them; in exchange it needs no FHE network, and its proofs need no wallet on the other side.
+**The honest trade-off.** Zama and Bron's payroll ([the first on Ethereum mainnet](https://www.zama.org/post/the-first-confidential-payroll-on-ethereum-mainnet)) hides the *amount* with an FHE token (cUSDT, ERC-7984) and has no payslip. Cista is close to the mirror image: it seals the whole payslip and proves facts from it, but each person's **net pay is visible in the payment**, because QoreChain's bank transfers are public. Anyone who already knows an employee's address can read their net pay per period; nobody learns who they are, their gross pay, tax, deductions or role from the chain. In exchange Cista needs no FHE network, and its proofs need no wallet on the other side. If QoreChain adds confidential tokens, Cista can pay in them and keep everything else as it is.
 
 ## Why it matters for Q-Day
 
@@ -154,7 +158,9 @@ Payslips have a long shelf life: a salary history copied today is still sensitiv
 
 Full detail in [audit.md](audit.md). In short:
 
-- **Payment amounts are public,** like every transfer on chain. Who the employee is, gross pay, tax, deductions, role and personal details stay sealed.
+- **Payment amounts are public,** like every transfer on chain: someone who knows an employee's address can read their net pay per period. Who the employee is, gross pay, tax, deductions, role and personal details stay sealed.
+- **One QoreX account is one company,** because proofs name the employer's address. Teams within a company share the account and each keeps its own runs to start from.
+- **About 120 people per pay run** fit in one transaction (QoreX caps gas at 5,000,000; the hint is 150,000 + 40,000 a person). A larger team would need the run split into several payments, which isn't built.
 - **The server** knows which addresses an employer pays and when, and can withhold payslips. It can't read them, swap keys, move envelopes or forge payments without being caught.
 - **The browser is the trust boundary:** a hacked server could serve a changed web app. "Check on chain" and `CistaVerifier` let a lender rely on the contract instead.
 - **Pay bands are fixed in advance** (23 of them); any range at all would need a zero-knowledge proof.
@@ -191,13 +197,14 @@ flowchart TB
 | `packages/core/src/seal.ts` | Sealing and opening payslips with QoreSeal, bound to their place, padded |
 | `packages/core/src/disclose.ts`, `sign.ts`, `verify.ts` | Selective disclosure, the signed proof statement, and the full check a lender runs |
 | `packages/core/src/payment.ts`, `bankmsg.ts`, `network.ts` | Reading the payment from the chain; encoding `MsgMultiSend` / `MsgSend` for QoreX; the REST chain reader |
-| `packages/core/src/recovery.ts`, `vault.ts`, `signin.ts` | The 24-word recovery phrase, the password-locked key vault, the sign-in statement |
+| `packages/core/src/recovery.ts`, `vault.ts`, `signin.ts` | The 24-word recovery phrase, the Argon2id key vault, the sign-in statement |
 | `packages/contracts/contracts/CistaVerifier.sol` | The on-chain check; on testnet at [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) |
 | `packages/contracts/scripts/deploy.ts`, `qday-drill.ts` | Deploy and check against a real run; the live Q-Day drill |
 | `apps/server/src/app.ts`, `db.ts` | The API (sign-in, key cards, pay runs, re-seal, payments, inbox, eth_call relay) and its SQLite store |
 | `apps/web/src/lib/qorex.ts` | QoreX: connect, sign text, send messages |
-| `apps/web/src/lib/keys.ts`, `tabkey.ts` | Keys from the phrase, unlock, recover, start over; staying unlocked in the tab |
-| `apps/web/src/lib/payroll.ts`, `payrun.ts`, `reseal.ts` | The team table to payslips; the five pay-run steps; re-sealing |
+| `apps/web/src/lib/keys.ts`, `tabkey.ts`, `passkey.ts` | Keys from the phrase, unlock, recover, start over; staying unlocked in the tab; passkey unlock (WebAuthn PRF) |
+| `apps/web/src/lib/strength.ts`, `phrasecheck.ts` | The password-strength estimate; asking the phrase back |
+| `apps/web/src/lib/payroll.ts`, `payrun.ts`, `reseal.ts`, `history.ts` | The team table to payslips; the five pay-run steps; re-sealing; starting from an earlier run and the year so far |
 | `apps/web/src/lib/fields.ts`, `onchain.ts` | Proof types and plain-language claims; the "Check on chain" call |
 | `apps/web/src/pages/` | Home, My key, Run payroll, My payslips (with the proof maker), Check a proof |
 | `deploy/` | Caddy site, systemd unit and a one-command VPS setup |
@@ -209,7 +216,7 @@ Node 22.13 or newer and pnpm 10.
 
 ```bash
 pnpm install
-pnpm test                               # core, server, web and contract tests (213)
+pnpm test                               # core, server, web and contract tests (238)
 pnpm --filter @cista/server start       # server on http://127.0.0.1:8787
 CISTA_DOMAIN=localhost:5173 pnpm --filter @cista/server start   # for local development
 pnpm --filter @cista/web dev            # http://localhost:5173 (proxies /api and /lcd-testnet)
