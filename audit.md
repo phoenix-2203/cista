@@ -10,7 +10,7 @@ It is not a third-party audit. What Cista does not protect is listed under **Lim
 | Commit audited | the commit that adds this file |
 | Contract | `CistaVerifier` at [`0xF26924d19029d1F1A253a3e079b16fD68B8519d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) (testnet, block 10,503,663) |
 | Wallet | QoreX browser extension, testnet, capabilities `signArbitrary` and `signAndBroadcast` |
-| Automated tests | 213, all passing: 154 core library, 30 server, 13 web app, 16 contract (local EVM), plus a browser check of the proof page |
+| Automated tests | 238, all passing: 160 core library, 30 server, 32 web app, 16 contract (local EVM), plus a browser check of the proof page and of passkey unlock |
 
 ## Summary
 
@@ -19,7 +19,7 @@ It is not a third-party audit. What Cista does not protect is listed under **Lim
 | Stolen classical key, live (Q-Day drill) | 8 | 8 blocked | [docs/qday-drill.md](docs/qday-drill.md) |
 | On-chain verifier, live | 2 | 2 passed | a real QoreX-signed run verified; the same run with the total raised by 1 refused |
 | On-chain verifier, local EVM | 16 tests | 16 | `packages/contracts/test` |
-| Sealing, commitments, signatures, proofs | 154 tests | 154 | `packages/core/test` |
+| Sealing, commitments, signatures, proofs, the key vault | 160 tests | 160 | `packages/core/test` |
 | Server API (sign-in, key cards, runs, re-seal, payments, eth_call relay) | 30 tests | 30 | `apps/server/test` |
 | Proof page in a real browser | 6 checks | 6 | `apps/web/e2e/verify-page.ts` |
 | Real pay runs on testnet | 2 | 2 | multi-send in QOR, then in fUSD; payslips opened; proofs checked |
@@ -107,8 +107,11 @@ A hacked server can still withhold payslips, or change the web app it serves (se
 ## 5. In the browser
 
 - Strict Content-Security-Policy: scripts, styles and connections only to the site itself; no framing; no referrer. Checked with the policy in force in a real browser.
-- The sealing key comes from a 24-word recovery phrase (QoreSeal's BIP-39 derivation), shown once. A password locks a copy (PBKDF2-SHA-256, 600,000 rounds; AES-256-GCM; bound to the account's address); while in use it stays unlocked in the tab only, wrapped by a non-extractable WebCrypto key, and locks after 30 minutes idle.
-- The phrase is never sent to the server; the recovery form turns off autocomplete and spellcheck.
+- The sealing key comes from a 24-word recovery phrase (QoreSeal's BIP-39 derivation), shown once. A password locks a copy (Argon2id, 64 MiB, 3 passes, RFC 9106; AES-256-GCM; bound to the account's address; vaults made earlier with PBKDF2-SHA-256 at 600,000 rounds still open and are re-locked with Argon2id on the next unlock; a backup edited to ask for absurd Argon2 settings is refused before any work); while in use it stays unlocked in the tab only, wrapped by a non-extractable WebCrypto key, and locks after 30 minutes idle.
+- The phrase is never sent to the server; the recovery form turns off autocomplete and spellcheck. Three of its words are asked back before set-up finishes.
+- New passwords are scored by a small estimator that discounts common passwords, repeats, keyboard runs and the account's own address; weak ones are refused.
+- Passkey unlock (optional) uses the WebAuthn PRF extension with user verification; HKDF-SHA-256 turns the secret into the AES-256-GCM key that wraps the seed, bound to the account. Checked in Chromium with a virtual authenticator: round trip, another account refused, no seed in storage, a clear error for passkeys without PRF. A new or recovered key removes the old passkey.
+- Accessibility: axe-core (WCAG 2.1 AA and best practices) finds no issues on any page in either theme.
 - A proof of pay travels in the link's `#fragment`, which browsers don't send to the server.
 
 ## Findings
@@ -125,7 +128,7 @@ Five findings came up while building and testing. All are fixed. None let an att
 
 ## Limitations
 
-- **Payment amounts are public.** Like every transfer on chain, the fUSD paid to an address is visible. Someone who knows an employee's address can match it to net pay. What stays sealed: who the employee is, gross pay, tax, deductions, role and personal details. A fresh payout address per run would weaken that link; it is not built.
+- **Payment amounts are public.** Like every transfer on chain, the fUSD paid to an address is visible (Zama and Bron's FHE payroll hides the amount but has no payslip; Cista is close to the mirror image). Someone who knows an employee's address can match it to net pay. What stays sealed: who the employee is, gross pay, tax, deductions, role and personal details. A fresh payout address per run would weaken that link; it is not built.
 - **Metadata.** The server knows which addresses an employer pays and when, and a signed run's statement (employer, period, number of payslips, total) is public at `/api/runs/<root>`.
 - **The browser is the trust boundary.** A hacked server could serve a changed web app that leaks keys or phrases. Every web app has this limit; the on-chain verifier lets a lender's own contract check a proof without the web app.
 - **The proof page reads the chain through the site's relay**, which could lie to it. `CistaVerifier` checks the same proof on chain.
