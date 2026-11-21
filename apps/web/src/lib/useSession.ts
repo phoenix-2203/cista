@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { currentSession, type Session } from "./api";
+import { currentSession, type Session } from "./session";
 
 /** The signed-in session, kept in step across the app. */
 export function useSession(): Session | null {

@@ -7,7 +7,7 @@ import { fetchKemKey } from "@qorechain/qoreseal/network";
 import { fetchPqKeyStatus } from "@qorechain/qoresign/network";
 
 export const REST = "/lcd-testnet";
-export const EXPLORER_TX = "https://explore.qore.network/tx/";
+export { EXPLORER_TX } from "./links";
 
 const rest = () => new URL(REST, location.origin).toString().replace(/\/$/, "");
 

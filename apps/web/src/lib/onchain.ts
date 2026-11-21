@@ -14,7 +14,7 @@ import type { ProofBundle } from "@phoenix-2203/cista";
 import { decodeErrorResult, decodeFunctionResult, encodeFunctionData, getAddress, type Hex } from "viem";
 
 export const VERIFIER = getAddress(deployment.CistaVerifier);
-export const EXPLORER_ADDRESS = "https://explore.qore.network/address/";
+export { EXPLORER_ADDRESS } from "./links";
 
 const REASONS: Record<string, string> = {
   BadSignature: "the pay run's signature does not verify against the employer's registered ML-DSA-87 key",

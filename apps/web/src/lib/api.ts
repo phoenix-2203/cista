@@ -8,12 +8,9 @@
 import { signInStatement, type MessageSignature, type SignedRun } from "@phoenix-2203/cista";
 import type { RecipientCard } from "@qorechain/qoreseal";
 import { CHAIN_ID, connect, signText } from "./qorex";
+import { currentSession, saveSession, type Session } from "./session";
 
-export interface Session {
-  address: string;
-  token: string;
-  expiresAt: string;
-}
+export { currentSession, type Session };
 
 export interface StoredRun {
   run: SignedRun;
@@ -21,7 +18,6 @@ export interface StoredRun {
   payment?: { txHash: string; height: number; at: string };
 }
 
-const KEY = "cista.session";
 
 export class ApiError extends Error {
   constructor(
@@ -31,26 +27,6 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
-}
-
-export function currentSession(): Session | null {
-  try {
-    const s = JSON.parse(sessionStorage.getItem(KEY) ?? "null") as Session | null;
-    if (!s || Date.parse(s.expiresAt) <= Date.now()) return null;
-    return s;
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(s: Session | null) {
-  try {
-    if (s) sessionStorage.setItem(KEY, JSON.stringify(s));
-    else sessionStorage.removeItem(KEY);
-  } catch {
-    /* storage can be off; the session then lasts for this page only */
-  }
-  window.dispatchEvent(new Event("cista:session"));
 }
 
 async function call<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {

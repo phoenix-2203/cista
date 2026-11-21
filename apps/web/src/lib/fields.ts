@@ -9,7 +9,7 @@
  * Cista offers all four as presets over the same per-field disclosure, plus a
  * custom pick.
  */
-import { money, payout } from "../components";
+import { money, payout } from "./format";
 
 const NAMES: Record<string, string> = {
   version: "Payslip format",
