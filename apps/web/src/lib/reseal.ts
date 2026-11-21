@@ -21,7 +21,14 @@ export async function resealRun(run: SignedRun, employerKeys: SealKeyPair): Prom
   const out: ResealResult = { resealed: [], failed: [] };
   for (const e of envelopes) {
     try {
-      const opened = openPayslip({ envelope: envelopeFromText(e.envelope), keys: employerKeys, ...ctx, employee: e.employee });
+      let opened;
+      try {
+        opened = openPayslip({ envelope: envelopeFromText(e.envelope), keys: employerKeys, ...ctx, employee: e.employee });
+      } catch {
+        throw new Error(
+          "your copy is sealed to an earlier key of yours. Recover that key with its recovery phrase (My key → Forgot your password?), then re-seal",
+        );
+      }
       const to = await resolveRecipient(e.employee);
       const sealed = sealPayslip(ctx, opened.slip, { employee: to.recipient, employer: recipientOf(employerKeys) });
       await api.reseal(run.runRoot, e.employee, envelopeToText(sealed));

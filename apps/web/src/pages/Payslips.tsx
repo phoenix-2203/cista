@@ -86,7 +86,7 @@ function Inbox({ address }: { address: string }) {
           </table>
         </div>
         {entries.some((e) => e.problem) && (
-          <p className="small muted">A payslip that can't be opened was sealed to an older key, or didn't match the run your employer signed. Ask your employer to re-seal it to your current key.</p>
+          <p className="small muted">"Can't open" means the payslip was sealed to an earlier key of yours. If you have that key's recovery phrase, use it on My key → Forgot your password?. If not, ask your employer to press Re-seal on that pay run: they can, as long as they still have the key they used when they paid it.</p>
         )}
       </div>
       {current?.opened && (
