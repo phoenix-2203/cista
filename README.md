@@ -52,9 +52,9 @@ Confidential payroll fixes the first part but makes a new problem. Employees sti
 
 You need Chrome with QoreX on testnet (in the extension, tap the version number 7 times, then "Switch to testnet (diana)"), two QoreX accounts, and some test fUSD and QOR for the one that pays ([faucet](https://dashboard.qorechain.io/faucet)).
 
-1. **Both accounts, on My key:** sign in with QoreX, make a key (write down the 24-word recovery phrase), then sign and publish the key card.
-2. **Employer, on Run payroll:** add the other account to the team with a small salary, then press through Check, Sign the run, Seal and upload, and Pay.
-3. **Employee, on My payslips:** open the payslip, then under Prove your pay pick "Income in a range", name who it's for, and sign.
+1. **Both accounts, on My key:** sign in with QoreX, make a key (write down the 24-word recovery phrase and type three of its words back), then sign and publish the key card. Optionally set up a passkey to unlock without the password.
+2. **Employer, on Run payroll:** add the other account to the team with a small salary, then press through Check, Sign the run, Seal and upload, and Pay. Next month, pick the run under "Start from this run" and the table fills itself in.
+3. **Employee, on My payslips:** open the payslip, then under Prove your pay pick "Income in a range" (or "Earned this year"), name who it's for, and sign.
 4. **Anyone:** open the link. Press "Check on chain" to have the contract check it too.
 
 ## How a pay run works
@@ -232,6 +232,7 @@ Testnet scripts, from a **throwaway** testnet account in the git-ignored `packag
 ```bash
 pnpm --filter @cista/contracts deploy:testnet    # deploy CistaVerifier and check it against a real run
 pnpm --filter @cista/contracts qday:drill        # the live Q-Day drill
+pnpm --filter @cista/contracts team:run          # a live pay run for a team of three
 ```
 
 ## Deploy
@@ -253,7 +254,7 @@ Open source libraries and QoreChain kits Cista uses:
 | [@qorechain/qoreseal](https://github.com/qorechain/qoreseal) | Apache-2.0 | ML-KEM-1024 + X25519 sealing and signed recipient (key) cards |
 | [@qorechain/qoresign](https://github.com/qorechain/qoresign) | Apache-2.0 | Checking hybrid secp256k1 + ML-DSA-87 signatures; reading registered keys |
 | [@qorechain/sdk](https://www.npmjs.com/package/@qorechain/sdk) and [@qorechain/evm](https://www.npmjs.com/package/@qorechain/evm) | Apache-2.0 | The testnet scripts: hybrid-signed EVM windows, the deployment, the Q-Day drill |
-| [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
+| [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree; Argon2id for the key vault |
 | [@scure/bip39](https://github.com/paulmillr/scure-bip39) | MIT | The 24-word recovery phrase |
 | [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
 | [React](https://github.com/facebook/react) and [Vite](https://github.com/vitejs/vite) | MIT | The web app |
@@ -261,6 +262,7 @@ Open source libraries and QoreChain kits Cista uses:
 | [solc](https://github.com/ethereum/solc-js) | MIT (compiler only) | Compiling `CistaVerifier` |
 | [@ethereumjs/evm](https://github.com/ethereumjs/ethereumjs-monorepo) | MPL-2.0 (tests only) | Running the contract tests on a local EVM |
 | [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server and scripts |
+| [Instrument Serif](https://github.com/Instrument/instrument-serif), [Inter](https://github.com/rsms/inter), [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) via [Fontsource](https://fontsource.org) | SIL OFL 1.1 | Type, self-hosted; the wordmark is drawn from Instrument Serif outlines ([docs/brand](docs/brand/README.md)) |
 | [Vitest](https://github.com/vitest-dev/vitest) and [TypeScript](https://github.com/microsoft/TypeScript) | MIT, Apache-2.0 | Tests and type checking |
 
 The server's store uses `node:sqlite`, built into Node.js. AI use is documented in [AI_USAGE.md](AI_USAGE.md).
