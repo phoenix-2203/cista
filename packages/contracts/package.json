@@ -9,7 +9,8 @@
     "build": "tsx scripts/build.ts",
     "test": "tsx scripts/build.ts && vitest run",
     "typecheck": "tsc --noEmit",
-    "deploy:testnet": "node --env-file-if-exists=.env.seed --import tsx scripts/deploy.ts"
+    "deploy:testnet": "node --env-file-if-exists=.env.seed --import tsx scripts/deploy.ts",
+    "qday:drill": "node --env-file-if-exists=.env.seed --import tsx scripts/qday-drill.ts"
   },
   "devDependencies": {
     "@ethereumjs/evm": "^10.1.3",
