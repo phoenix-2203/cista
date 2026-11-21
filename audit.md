@@ -44,7 +44,7 @@ The attackers considered:
 | A2 | **Harvest now, decrypt later** | a full copy of Cista's database and network traffic, kept until quantum computers can break today's encryption |
 | A3 | **Malicious or hacked Cista server** | full control of the server and its database |
 | A4 | **Dishonest employee** | their own payslip and keys, wanting a better proof than the truth |
-| A5 | **Dishonest lender** | a proof of pay sent to them, wanting to reuse it |
+| A5 | **Dishonest verifier** | a proof of pay sent to them, wanting to reuse it |
 | A6 | **Curious colleague** | their own account and payslip in the same run |
 
 ## 1. Stolen classical key, live (A1)
@@ -92,14 +92,14 @@ Local EVM (ethereumjs, precompiles stood in by mocks that accept only the exact 
 
 A hacked server can still withhold payslips, or change the web app it serves (see Limitations).
 
-## 4. Dishonest employee (A4), dishonest lender (A5), curious colleague (A6)
+## 4. Dishonest employee (A4), dishonest verifier (A5), curious colleague (A6)
 
 | Attempt | Result | Test |
 | --- | --- | --- |
 | Raise net pay by one cent, rename a field, use a wrong salt, move a field to another position | Refused | `packages/core/test/disclose.test.ts`, `verify.test.ts`, contract tests |
 | Splice a colleague's higher net pay into your own proof | Refused: the fields lead to two different payslips | `disclose.test.ts`, contract tests |
 | Flip "net pay at least $3,000: no" to "yes" | Refused | contract tests |
-| Show a proof made for one lender to another | The proof names its recipient in the signed text; the page shows "Made for … If that isn't you, don't rely on it" | `packages/core/test/sign.test.ts` |
+| Show a proof made for one verifier to another | The proof names its recipient in the signed text; the page shows "Made for … If that isn't you, don't rely on it" | `packages/core/test/sign.test.ts` |
 | Push back the expiry | Refused: the expiry is signed | `sign.test.ts` |
 | Use a proof after it expires | Refused | `sign.test.ts` |
 | Pass off a colleague's proof as your own | Refused: the employee who signs must be the payslip's employee | `sign.test.ts`, `verify.test.ts` |
@@ -131,7 +131,7 @@ Five findings came up while building and testing. All are fixed. None let an att
 
 - **Payment amounts are public.** Like every transfer on chain, the fUSD paid to an address is visible (Zama and Bron's FHE payroll hides the amount but has no payslip; Cista is close to the mirror image). Someone who knows an employee's address can match it to net pay. What stays sealed: who the employee is, gross pay, tax, deductions, role and personal details. A fresh payout address per run would weaken that link; it is not built.
 - **Metadata.** The server knows which addresses an employer pays and when, and a signed run's statement (employer, period, number of payslips, total) is public at `/api/runs/<root>`.
-- **The browser is the trust boundary.** A hacked server could serve a changed web app that leaks keys or phrases. Every web app has this limit; the on-chain verifier lets a lender's own contract check a proof without the web app.
+- **The browser is the trust boundary.** A hacked server could serve a changed web app that leaks keys or phrases. Every web app has this limit; the on-chain verifier lets a verifier's own contract check a proof without the web app.
 - **The proof page reads the chain through the site's relay**, which could lie to it. `CistaVerifier` checks the same proof on chain.
 - **Pay bands are fixed in advance** (23 bands from $250 to $50,000 a month). Proving any range at all would need a zero-knowledge range proof.
 - **Lost both keys, lost the payslips.** If both the employee and the employer lose their keys and phrases, no one can open those payslips. That is the point of the sealing.
