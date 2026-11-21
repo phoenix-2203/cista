@@ -12,7 +12,9 @@
   --seal-hover: #761522;
   --seal-soft: #f1e1dc;
   --seal-ink: #6e1422;   /* text on --seal-soft */
-  --on-seal: #fbf8f2;    /* text on --seal */
+  --on-seal: #fbf8f2;    /* text on --seal-fill */
+  --seal-fill: #8e1b2c;  /* buttons: deep oxblood */
+  --seal-fill-hover: #761522;
   --wax-1: #c8485a; --wax-2: #9b1f31; --wax-3: #5e0f1b;
   --ok: #2f6b4f;
   --ok-soft: #e2eee5;
@@ -30,7 +32,7 @@
 :root[data-theme="dark"] {
   --paper: #0d0b0a; --paper-2: #211b18; --card: #171412; --field: #120f0e;
   --ink: #f2ebe0; --ink-2: #c9c0b4; --ink-3: #9a9086; --rule: #2c2522;
-  --seal: #e06b7b; --seal-hover: #ea8592; --seal-soft: #2e1a1c; --seal-ink: #f0a3ad; --on-seal: #0d0b0a;
+  --seal: #f05a6e; --seal-hover: #f47a8a; --seal-soft: #2e1a1c; --seal-ink: #f4a9b2; --seal-fill: #b02a40; --seal-fill-hover: #c0344b; --on-seal: #fbf1ec;
   --ok: #6fbf95; --ok-soft: #14261d; --bad: #ef7a6c; --bad-soft: #2d1714;
   --shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.8); --glow: 55%;
   color-scheme: dark;
@@ -39,7 +41,7 @@
   :root:not([data-theme="light"]) {
     --paper: #0d0b0a; --paper-2: #211b18; --card: #171412; --field: #120f0e;
     --ink: #f2ebe0; --ink-2: #c9c0b4; --ink-3: #9a9086; --rule: #2c2522;
-    --seal: #e06b7b; --seal-hover: #ea8592; --seal-soft: #2e1a1c; --seal-ink: #f0a3ad; --on-seal: #0d0b0a;
+    --seal: #f05a6e; --seal-hover: #f47a8a; --seal-soft: #2e1a1c; --seal-ink: #f4a9b2; --seal-fill: #b02a40; --seal-fill-hover: #c0344b; --on-seal: #fbf1ec;
     --ok: #6fbf95; --ok-soft: #14261d; --bad: #ef7a6c; --bad-soft: #2d1714;
     --shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.8); --glow: 55%;
     color-scheme: dark;
@@ -104,10 +106,10 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
   font: 500 0.93rem var(--sans); padding: 0.66rem 1.2rem; border-radius: 999px;
-  border: 1px solid var(--seal); background: var(--seal); color: var(--on-seal);
+  border: 1px solid var(--seal-fill); background: var(--seal-fill); color: var(--on-seal);
   transition: background 0.15s, border-color 0.15s; cursor: pointer; text-decoration: none;
 }
-.btn:hover { background: var(--seal-hover); border-color: var(--seal-hover); color: var(--on-seal); }
+.btn:hover { background: var(--seal-fill-hover); border-color: var(--seal-fill-hover); color: var(--on-seal); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
 .btn.ghost:hover { background: var(--paper-2); color: var(--ink); }
@@ -297,7 +299,7 @@ table input { padding: 0.35rem 0.45rem; font-size: 0.88rem; }
 /* Q-Day: always dark, whatever the theme */
 .qday { position: relative; overflow: hidden; isolation: isolate; margin-top: var(--gap); border-radius: 28px; padding: clamp(2.2rem, 6vw, 4.5rem);
   background: #0d0b0a; color: #f2ebe0; border: 1px solid #2c2522;
-  --ink: #f2ebe0; --ink-2: #c9c0b4; --ink-3: #9a9086; --rule: #2c2522; --card: #171412; --seal: #d9606f; --seal-soft: #2e1a1c; }
+  --ink: #f2ebe0; --ink-2: #c9c0b4; --ink-3: #9a9086; --rule: #2c2522; --card: #171412; --seal: #f05a6e; --seal-soft: #2e1a1c; }
 .qday-glow { position: absolute; z-index: -1; inset: 0; pointer-events: none;
   background: radial-gradient(50% 60% at 85% 0%, rgba(201, 71, 90, 0.35), transparent 70%), radial-gradient(40% 50% at 0% 100%, rgba(155, 31, 49, 0.25), transparent 70%); }
 .qday h2 { color: #f2ebe0; }
