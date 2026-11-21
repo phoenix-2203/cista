@@ -46,7 +46,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
   const sealedCount = slip.fields.filter((f) => !(f.name in shown) && f.name !== "version").length;
 
   if (!entry.payment) {
-    return <div className="card"><h3>Prove your pay</h3><p className="muted">You can make a proof once this pay run's payment is on chain.</p></div>;
+    return <div className="card"><h2 className="h3">Prove your pay</h2><p className="muted">You can make a proof once this pay run's payment is on chain.</p></div>;
   }
 
   const reset = () => setLink(null);
@@ -77,10 +77,10 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
 
   return (
     <div className="card">
-      <h3>Prove your pay</h3>
+      <h2 className="h3">Prove your pay</h2>
       <p className="muted">Share one fact from this payslip, not the payslip. The person checking needs no wallet, sees only what you choose, and can check it against the chain.</p>
 
-      <h4 className="step-title">1 · What do you need to prove?</h4>
+      <h3 className="step-title">1 · What do you need to prove?</h3>
       <div className="choice-grid" role="radiogroup">
         {PROOF_KINDS.map((k) => {
           const disabled =
@@ -149,7 +149,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
         </div>
       )}
 
-      <h4 className="step-title">2 · Who is it for?</h4>
+      <h3 className="step-title">2 · Who is it for?</h3>
       <div className="grid">
         <div className="field">
           <label htmlFor="purpose">Purpose</label>
@@ -173,7 +173,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
         </div>
       </div>
 
-      <h4 className="step-title">3 · What they will see</h4>
+      <h3 className="step-title">3 · What they will see</h3>
       <div className="preview">
         <ul>
           {claims(shown).map((c) => <li key={c}>{c}</li>)}

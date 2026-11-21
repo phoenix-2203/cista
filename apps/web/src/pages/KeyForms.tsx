@@ -67,7 +67,7 @@ export function PhraseView({ phrase, vault, onDone }: { phrase: string; vault: V
   if (checking) return <PhraseCheck words={words} onBack={() => setChecking(false)} onDone={onDone} />;
   return (
     <div className="card">
-      <h3>Write down your recovery phrase</h3>
+      <h2 className="h3">Write down your recovery phrase</h2>
       <p>
         These {RECOVERY_WORDS} words rebuild your Cista key if you forget your password, so your payslips stay readable. Write them on paper, in
         order. This is the only time they are shown.
@@ -104,7 +104,7 @@ function PhraseCheck({ words, onBack, onDone }: { words: string[]; onBack: () =>
   const right = positions.map((p, i) => sameWord(typed[i]!, words[p]!));
   return (
     <div className="card">
-      <h3>Check your recovery phrase</h3>
+      <h2 className="h3">Check your recovery phrase</h2>
       <p>From what you wrote down, type these three words. The phrase isn't on screen any more, so this checks your paper copy.</p>
       <div className="grid">
         {positions.map((p, i) => (
@@ -140,7 +140,7 @@ export function RecoverForm({ address, onDone, onCancel, onStartOver }: { addres
   const { busy, error, setError, run } = useAction();
   return (
     <div className="card">
-      <h3>Use your recovery phrase</h3>
+      <h2 className="h3">Use your recovery phrase</h2>
       <p>Type the {RECOVERY_WORDS} words you wrote down when you made your key, then choose a new password. Your payslips open again as before.</p>
       {error && <Notice kind="bad">{error}</Notice>}
       <form

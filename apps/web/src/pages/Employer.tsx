@@ -210,7 +210,7 @@ function PayrollDesk({ employer }: { employer: string }) {
   return (
     <>
       <div className="card">
-        <h3>This pay run</h3>
+        <h2 className="h3">This pay run</h2>
         <div className="grid">
           <div className="field">
             <label htmlFor="co">Company name</label>
@@ -240,7 +240,7 @@ function PayrollDesk({ employer }: { employer: string }) {
 
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>Team</h3>
+          <h2 className="h3" style={{ margin: 0 }}>Team</h2>
           <div className="row">
             {!locked && <StartFrom busy={busy} onPick={startFrom} refresh={refresh} />}
             <label className="btn ghost small" style={{ margin: 0 }}>
@@ -301,7 +301,7 @@ function PayrollDesk({ employer }: { employer: string }) {
       </div>
 
       <div className="card">
-        <h3>Pay the team</h3>
+        <h2 className="h3">Pay the team</h2>
         <ul className="checks">
           <Step n={1} done={stage.kind !== "edit"} title="Check everyone's keys and your balance">
             {stage.kind === "edit" && <button className="btn small" disabled={busy} onClick={check}>{busy ? "Checking…" : "Check"}</button>}

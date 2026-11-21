@@ -31,7 +31,7 @@ export function RunsList() {
   if (!runs || runs.length === 0) return null;
   return (
     <div className="card">
-      <h3>Your pay runs</h3>
+      <h2 className="h3">Your pay runs</h2>
       <p className="small muted">An employee who lost their key and made a new one? Re-seal the run: you open your own copy of each payslip and seal it again to their new key.</p>
       {note && <Notice kind="ok">{note}</Notice>}
       {error && <Notice kind="bad">{error}</Notice>}

@@ -18,7 +18,14 @@ type Mode = "auto" | "forgot" | "new" | "phrase" | "recovered";
 
 export function Setup() {
   const session = useSession();
-  if (!session) return <SignInCard why="Your Cista key belongs to your QoreChain account." />;
+  if (!session) {
+    return (
+      <>
+        <h1>Your Cista key</h1>
+        <SignInCard why="Your Cista key belongs to your QoreChain account." />
+      </>
+    );
+  }
   return (
     <>
       <h1>Your Cista key</h1>
@@ -65,7 +72,7 @@ function KeyDesk({ address }: { address: string }) {
   if (!keys) {
     return (
       <div className="card">
-        <h3>Unlock your key</h3>
+        <h2 className="h3">Unlock your key</h2>
         <UnlockForm address={address} vault={vault} onDone={refresh} onForgot={() => setMode("forgot")} />
       </div>
     );
@@ -95,7 +102,7 @@ function MakeKey({ address, replacing, onMade, onCancel }: { address: string; re
   const { busy, error, setError, run } = useAction();
   return (
     <div className="card">
-      <h3>{replacing ? "Start over with a new key" : "Make your key"}</h3>
+      <h2 className="h3">{replacing ? "Start over with a new key" : "Make your key"}</h2>
       {replacing && (
         <Notice kind="bad">
           A new key can't open payslips sealed to your old one. Use this only if you've lost both your password and your recovery phrase; your
@@ -141,7 +148,7 @@ function PasskeyCard({ address }: { address: string }) {
   return (
     <div className="card passkey-card">
       <div>
-        <h3>{on ? "Passkey unlock is on" : "Unlock with a passkey"}</h3>
+        <h2 className="h3">{on ? "Passkey unlock is on" : "Unlock with a passkey"}</h2>
         <p className="small muted">
           {on
             ? "This browser unlocks your key with your passkey. Your password and recovery phrase still work."

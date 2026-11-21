@@ -90,7 +90,7 @@ function VerdictView({ verdict, bundle, onReset }: { verdict: Verdict; bundle: P
         <div className="slip" style={{ marginBottom: "1.2rem" }}>
           <header>
             <div>
-              <h3 style={{ margin: 0 }}>What the employee chose to show</h3>
+              <h2 className="h3" style={{ margin: 0 }}>What the employee chose to show</h2>
               <span className="small muted">Everything else on the payslip stays sealed. Amounts are in {fields.currency}.</span>
             </div>
           </header>
@@ -108,7 +108,7 @@ function VerdictView({ verdict, bundle, onReset }: { verdict: Verdict; bundle: P
       )}
 
       <div className="card">
-        <h3>What was checked</h3>
+        <h2 className="h3">What was checked</h2>
         <ul className="checks">
           {verdict.checks.map((c) => (
             <li key={c.id} className={c.ok ? "ok" : "bad"}>
@@ -149,7 +149,7 @@ function OnChainCheck({ bundle, employee }: { bundle: ProofBundle; employee: str
   const same = result?.ok && result.employee.toLowerCase() === parseAddress(employee).hex.toLowerCase();
   return (
     <div className="card">
-      <h3>Check it on chain too</h3>
+      <h2 className="h3">Check it on chain too</h2>
       <p className="small muted">
         The <a href={EXPLORER_ADDRESS + VERIFIER} target="_blank" rel="noreferrer">CistaVerifier contract</a> checks the same proof with QoreChain's own
         post-quantum precompiles: the employer's ML-DSA-87 signature, then every shown field. Any app or contract can ask it the same question.
