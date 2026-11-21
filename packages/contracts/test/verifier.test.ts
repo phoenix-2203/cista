@@ -157,6 +157,32 @@ describe("CistaVerifier: payslip fields", () => {
     expect(gas).toBeLessThan(400_000n);
   });
 
+  it("verifies \"earned at least $25,000 this year\" from a payslip with year-to-date totals", async () => {
+    const withYear = (who: ReturnType<typeof account>, net: bigint): Payslip => ({
+      ...slip(who, net),
+      payFrequency: "monthly",
+      yearToDate: { gross: net * 11n, deductions: 0n, thresholds: [2_500_000n, 5_000_000n] },
+    });
+    const run = buildPayRun(CHAIN, [
+      { slip: withYear(ada, 279_050n), seed: fromHex("03".repeat(32)) },
+      { slip: withYear(bayo, 150_000n), seed: fromHex("04".repeat(32)) },
+    ]);
+    const body = unsignedRun(run);
+    const statement = signedRunStatement(body);
+    const signed: SignedRun = { ...body, signature: employer.sign(statement) };
+    const pqSig = Uint8Array.from(atob(signed.signature.pq!.signature), (c) => c.charCodeAt(0));
+    await chain.allowSignature(employer.pqKey.publicKey, pqSig, messagePqSignBytes(CHAIN, statement));
+    const d = createDisclosure(run, run.slips[0]!, ["employer.name", "payFrequency", "ytd.net.atLeast.2500000"]);
+    expect(d.fields.find((f) => f.name === "ytd.net.atLeast.2500000")?.value).toBe("yes");
+    const { result } = await chain.call<[string, string]>("verifyFields", [header(signed), toHex(pqSig), BigInt(d.slipIndex), d.slipSiblings.map((x) => `0x${x}`), asFields(d)]);
+    expect(result[1].toLowerCase()).toBe(ada.evm);
+    // Flipping Bayo's "no" for $25,000 to "yes" is refused.
+    const b = createDisclosure(run, run.slips[1]!, ["ytd.net.atLeast.2500000"]);
+    const flipped = asFields(b).map((f) => (f.name === "ytd.net.atLeast.2500000" ? { ...f, value: "yes" } : f));
+    expect(b.fields.find((f) => f.name === "ytd.net.atLeast.2500000")?.value).toBe("no");
+    await expectRevert(chain.call("verifyFields", [header(signed), toHex(pqSig), BigInt(b.slipIndex), b.slipSiblings.map((x) => `0x${x}`), flipped]), "BadProof");
+  });
+
   const tampered = (what: string, edit: (fields: ReturnType<typeof asFields>) => void, error = "BadProof") =>
     it(`refuses ${what}`, async () => {
       const { run, signed, pqSig, message } = signedRun();
