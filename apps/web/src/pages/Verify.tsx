@@ -5,14 +5,17 @@
  * server.
  */
 import { useEffect, useState } from "react";
-import { decodeProofBundle, verifyProofBundle, type Verdict } from "@phoenix-2203/cista";
+import { decodeProofBundle, verifyProofBundle, type ProofBundle, type Verdict } from "@phoenix-2203/cista";
+import { parseAddress } from "@qorechain/qoresign";
 import { errorText, Notice, short } from "../components";
 import { chain, EXPLORER_TX } from "../lib/chain";
 import { claims, fieldName, fieldValue } from "../lib/fields";
+import { checkOnChain, EXPLORER_ADDRESS, VERIFIER, type OnChainResult } from "../lib/onchain";
 
 export function Verify() {
   const [text, setText] = useState(() => decodeURIComponent(location.hash.slice(1)));
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [bundle, setBundle] = useState<ProofBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -22,7 +25,9 @@ export function Verify() {
     setVerdict(null);
     try {
       const raw = input.includes("#") ? input.slice(input.indexOf("#") + 1) : input;
-      setVerdict(await verifyProofBundle(decodeProofBundle(raw), chain));
+      const b = decodeProofBundle(raw);
+      setBundle(b);
+      setVerdict(await verifyProofBundle(b, chain));
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -52,14 +57,14 @@ export function Verify() {
         </div>
       )}
       {error && <Notice kind="bad">{error}</Notice>}
-      {verdict && <VerdictView verdict={verdict} onReset={() => { setVerdict(null); setText(""); history.replaceState(null, "", "/verify"); }} />}
+      {verdict && <VerdictView verdict={verdict} bundle={bundle} onReset={() => { setVerdict(null); setBundle(null); setText(""); history.replaceState(null, "", "/verify"); }} />}
     </>
   );
 }
 
 const HIDDEN = new Set(["employee.address", "employer.address", "currency", "period", "version"]);
 
-function VerdictView({ verdict, onReset }: { verdict: Verdict; onReset: () => void }) {
+function VerdictView({ verdict, bundle, onReset }: { verdict: Verdict; bundle: ProofBundle | null; onReset: () => void }) {
   const fields = verdict.fields ?? {};
   const shown = Object.keys(fields).filter((n) => !HIDDEN.has(n));
   return (
@@ -119,7 +124,56 @@ function VerdictView({ verdict, onReset }: { verdict: Verdict; onReset: () => vo
           </p>
         )}
       </div>
+      {verdict.ok && bundle && <OnChainCheck bundle={bundle} employee={verdict.employee!} />}
       <button className="btn ghost" onClick={onReset}>Check another proof</button>
     </>
+  );
+}
+
+/** Asks the CistaVerifier contract to check the same proof, with QoreChain's own PQC precompiles. */
+function OnChainCheck({ bundle, employee }: { bundle: ProofBundle; employee: string }) {
+  const [result, setResult] = useState<OnChainResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setResult(await checkOnChain(bundle));
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const same = result?.ok && result.employee.toLowerCase() === parseAddress(employee).hex.toLowerCase();
+  return (
+    <div className="card">
+      <h3>Check it on chain too</h3>
+      <p className="small muted">
+        The <a href={EXPLORER_ADDRESS + VERIFIER} target="_blank" rel="noreferrer">CistaVerifier contract</a> checks the same proof with QoreChain's own
+        post-quantum precompiles: the employer's ML-DSA-87 signature, then every shown field. Any app or contract can ask it the same question.
+      </p>
+      {!result && (
+        <button className="btn ghost" disabled={busy} onClick={run}>{busy ? "Asking the contract…" : "Check on chain"}</button>
+      )}
+      {error && <Notice kind="bad">{error}</Notice>}
+      {result && (
+        <ul className="checks">
+          {result.ok ? (
+            <li className={same ? "ok" : "bad"}>
+              <span className="mark">{same ? "✓" : "✕"}</span>
+              <div>
+                {same
+                  ? `CistaVerifier confirmed it: the employer ${result.employer} signed the pay run (ML-DSA-87, checked by the chain), and the shown fields are in the payslip of ${result.employee}.`
+                  : `The contract confirmed a payslip of ${result.employee}, which is not the account this proof names.`}
+              </div>
+            </li>
+          ) : (
+            <li className="bad"><span className="mark">✕</span><div>The contract refused it: {result.reason}.</div></li>
+          )}
+        </ul>
+      )}
+    </div>
   );
 }
