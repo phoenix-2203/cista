@@ -214,3 +214,28 @@ describe("key cards", () => {
     expect((await w2.call("POST", "/api/cards", { card: ada.card(), mlkemPublicKey: ada.mlkemHex() }, t2)).status).toBe(400);
   });
 });
+
+describe("on-chain check relay", () => {
+  it("is off unless configured", async () => {
+    const w = world();
+    expect((await w.call("POST", "/api/verifier/call", { data: "0x12345678" })).status).toBe(404);
+  });
+
+  it("forwards hex calldata only, and passes back the answer", async () => {
+    const { createApp } = await import("../src/app");
+    const { Store } = await import("../src/db");
+    const seen: string[] = [];
+    const app = createApp({
+      store: new Store(),
+      chain: world().chain,
+      domain: "cista.test",
+      chainId: CHAIN,
+      verifierCall: async (data) => (seen.push(data), { result: "0x01" }),
+    });
+    const post = (body: unknown) => app.request("/api/verifier/call", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect(await (await post({ data: "0xdeadbeef00" })).json()).toEqual({ result: "0x01" });
+    expect((await post({ data: "not hex" })).status).toBe(400);
+    expect((await post({ data: "0x12" })).status).toBe(400);
+    expect(seen).toEqual(["0xdeadbeef00"]);
+  });
+});
