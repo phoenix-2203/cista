@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/cista-wordmark-dark.svg">
+    <img src="docs/brand/cista-wordmark.svg" alt="Cista" width="260">
+  </picture>
+</p>
+
 # Cista
 
 [![Built on QoreChain](https://build.qorechain.io/badge/cista.svg)](https://build.qorechain.io/p/cista)
