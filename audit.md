@@ -23,6 +23,7 @@ It is not a third-party audit. What Cista does not protect is listed under **Lim
 | Server API (sign-in, key cards, runs, re-seal, payments, eth_call relay) | 30 tests | 30 | `apps/server/test` |
 | Proof page in a real browser | 6 checks | 6 | `apps/web/e2e/verify-page.ts` |
 | Real pay runs on testnet | 2 | 2 | multi-send in QOR, then in fUSD; payslips opened; proofs checked |
+| Live team pay run (3 people, one transaction) | 16 checks | 16 | [docs/team-run.md](docs/team-run.md) |
 
 No attack let anyone read a payslip, move money, sign in as someone else, or pass a false proof of pay.
 
