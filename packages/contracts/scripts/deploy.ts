@@ -11,7 +11,8 @@
  *    made in QoreX, is checked by the chain's PQC precompiles.
  * 3. Calls it again with the total raised by one unit, which must be refused.
  *
- * Writes the address to deployments/testnet.json.
+ * Writes the address to drill-results/deployment-testnet.json (git-ignored;
+ * Claude commits it into packages/contracts/deployments/).
  */
 import { decodeErrorResult, getAddress } from "viem";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -73,9 +74,9 @@ try {
 if (!refused) throw new Error("a run with a raised total was accepted: do not use this deployment");
 console.log(`  same run with the total raised by 1: refused (${refused})`);
 
-mkdirSync("deployments", { recursive: true });
+mkdirSync("../../drill-results", { recursive: true });
 writeFileSync(
-  "deployments/testnet.json",
+  "../../drill-results/deployment-testnet.json",
   JSON.stringify({ chainId: "qorechain-diana", evmChainId: 9800, CistaVerifier: address, deployTx: hash, block: Number(rcpt.blockNumber), checkedAgainstRun: RUN, verifyRunGas: Number(gas) }, null, 2) + "\n",
 );
-console.log(`\nWrote deployments/testnet.json. Send Claude the lines above.`);
+console.log(`\nWrote drill-results/deployment-testnet.json. Claude reads it from there.`);
