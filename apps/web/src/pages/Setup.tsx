@@ -43,7 +43,7 @@ function KeyDesk({ address }: { address: string }) {
     const on = () => refresh();
     window.addEventListener("cista:keys", on);
     return () => window.removeEventListener("cista:keys", on);
-  }, [address, address.slice(0, 12)]);
+  }, [address]);
 
   const keys = unlockedKeys(address);
 
