@@ -53,9 +53,30 @@ export function App() {
         <Page />
       </main>
       <footer className="footer">
-        <span>Cista · QoreChain testnet only</span>
-        <a href="https://github.com/phoenix-2203/cista" target="_blank" rel="noreferrer">Source</a>
-        <a href="https://build.qorechain.io/p/cista" target="_blank" rel="noreferrer">Build Before Q-Day</a>
+        <div className="about">
+          <Wordmark height={30} />
+          <p>Sealed payroll on QoreChain. Everyone gets paid; only you can read your payslip.</p>
+        </div>
+        <nav aria-label="App">
+          <h4>App</h4>
+          <ul>{NAV.map(([href, label]) => <li key={href}><Link href={href}>{label}</Link></li>)}</ul>
+        </nav>
+        <nav aria-label="Project">
+          <h4>Project</h4>
+          <ul>
+            <li><a href="https://github.com/phoenix-2203/cista" target="_blank" rel="noreferrer">Source</a></li>
+            <li><a href="https://github.com/phoenix-2203/cista/blob/main/audit.md" target="_blank" rel="noreferrer">Security audit</a></li>
+            <li><a href="https://github.com/phoenix-2203/cista/blob/main/docs/qday-drill.md" target="_blank" rel="noreferrer">Q-Day drill</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Network">
+          <h4>Network</h4>
+          <ul>
+            <li><a href="https://build.qorechain.io/p/cista" target="_blank" rel="noreferrer">Build Before Q-Day</a></li>
+            <li><a href="https://explore.qore.network/" target="_blank" rel="noreferrer">QoreChain explorer</a></li>
+          </ul>
+        </nav>
+        <div className="base"><span>QoreChain testnet only · not for real salaries yet</span><span>MIT licence</span></div>
       </footer>
     </div>
   );
