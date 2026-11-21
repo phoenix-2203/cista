@@ -13,7 +13,7 @@
  * the chain's KEM registry for the wallet itself: a website can't send
  * MsgRegisterKEMKey.)
  */
-import { lockSeed, newRecoveryPhrase, seedFromPhrase, toHex, unlockSeed, type Vault } from "@phoenix-2203/cista";
+import { lockSeed, needsUpgrade, newRecoveryPhrase, seedFromPhrase, toHex, unlockSeed, type Vault } from "@phoenix-2203/cista";
 import { assembleRecipientCard, recipientCardFields, recipientCardText, sealKeysFromSeed, type RecipientCard, type SealKeyPair } from "@qorechain/qoreseal";
 import { api, ApiError } from "./api";
 import { CHAIN_ID, signText } from "./qorex";
@@ -83,7 +83,8 @@ export async function createKeys(address: string, password: string): Promise<{ p
 export async function unlockKeys(address: string, password: string, vault = savedVault(address)): Promise<SealKeyPair> {
   if (!vault) throw new Error("no Cista key in this browser for this account");
   const seed = await unlockSeed(vault, password, address);
-  saveVault(vault);
+  // A vault from before Argon2id: lock it again with Argon2id under the same password.
+  saveVault(needsUpgrade(vault) ? await lockSeed(seed, password, address) : vault);
   return useSeed(address, seed);
 }
 
