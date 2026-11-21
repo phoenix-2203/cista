@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@cista/contracts": "workspace:*",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@phoenix-2203/cista": "workspace:*",
     "@qorechain/qoreseal": "^0.1.0",
     "@qorechain/qoresign": "^0.2.0",
