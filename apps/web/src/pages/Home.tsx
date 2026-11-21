@@ -1,7 +1,7 @@
 import deployment from "@cista/contracts/deployments/testnet.json";
 import { short } from "../lib/format";
 import {
-  IconArrow, IconArrowUp, IconAtom, IconBank, IconBriefcase, IconBuilding, IconCalendar, IconChain, IconEyeOff,
+  IconArrow, IconArrowUp, IconAtom, IconBriefcase, IconBuilding, IconCalendar, IconChain, IconEyeOff,
   IconKey, IconPay, IconPerson, IconProve, IconRange, IconReceipt, IconSeal, IconSign, IconSliders,
 } from "../icons";
 import { PURPOSES } from "../lib/fields";
@@ -27,7 +27,7 @@ export function Home() {
           <h1>Everyone gets paid. Only you can <em>read</em> your payslip.</h1>
           <p className="lede">
             Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 before they leave the employer's browser, one hybrid-signed
-            transaction pays the whole team in fUSD, and anyone can prove their pay to a lender without handing over the payslip.
+            transaction pays the whole team in fUSD, and anyone can prove their pay without handing over the payslip.
           </p>
           <div className="row">
             <Link className="btn" href="/employer">Run payroll <IconArrow /></Link>
@@ -87,7 +87,7 @@ function Problem() {
           <ul className="xlist">
             <li>Private, but trivial to edit and impossible to check.</li>
             <li>Proving your income means handing over every line.</li>
-            <li>The lender keeps a copy of all of it, forever.</li>
+            <li>Whoever receives it keeps a copy of all of it, forever.</li>
           </ul>
         </div>
       </div>
@@ -139,7 +139,7 @@ function Audiences() {
       points: ["Seal every payslip in your browser", "Sign once, pay the whole team in one transaction", "Next month, start from this run"] },
     { icon: <IconPerson />, title: "Employees", href: "/payslips", cta: "Open my payslips",
       points: ["Only your key opens your payslip", "Unlock with a passkey; recover with 24 words", "Prove one fact, even \"earned this year\""] },
-    { icon: <IconBank />, title: "Lenders and landlords", href: "/verify", cta: "Check a proof",
+    { icon: <IconProve />, title: "Whoever checks a proof", href: "/verify", cta: "Check a proof",
       points: ["Paste a proof link, no wallet needed", "Checked against the chain, not a PDF", "See only what you were shown"] },
   ];
   return (
@@ -269,7 +269,7 @@ function Faq() {
     ["Can Cista read my payslip?", "No. Payslips are sealed in the employer's browser to the employee's key. Cista's server stores ciphertext and can't open it."],
     ["What is public on chain?", "The payment: who was paid, how much, and the run's fingerprint in the memo. Names, roles, gross pay, tax and deductions are not on chain."],
     ["What if I forget my password?", "Your key comes from a 24-word recovery phrase shown once when you make it, and checked before you finish. The phrase rebuilds the same key and every payslip opens again. You can also unlock with a passkey (Face ID, a fingerprint) instead of the password."],
-    ["Does a lender need a wallet?", "No. They open the proof link on the Check a proof page. Anyone can also ask CistaVerifier on chain to check the run's signature."],
+    ["Does the person checking a proof need a wallet?", "No. They open the proof link on the Check a proof page. Anyone can also ask CistaVerifier on chain to check the run's signature."],
     ["Which tokens does it pay in?", "fUSD, QoreChain's native stablecoin, at $1 per fUSD. The first test run paid in QOR."],
     ["Is this live on mainnet?", "Not yet. Cista runs on QoreChain's testnet; every transaction linked on this page is real and on that testnet."],
   ];
