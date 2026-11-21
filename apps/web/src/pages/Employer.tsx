@@ -4,16 +4,18 @@ import { statementOf, toHex, type PayRun, type SignedRun } from "@phoenix-2203/c
 import { money, NeedsKey, Notice, payout, qor, short, useAction } from "../components";
 import { api, type StoredRun } from "../lib/api";
 import { balanceOf, EXPLORER_TX } from "../lib/chain";
-import { nextPayDate, nextPeriod, openEmployerCopies } from "../lib/history";
+import { nextPayDate, nextPeriod, openEmployerCopies, priorYear } from "../lib/history";
 import { unlockedKeys } from "../lib/keys";
 import {
   emptyRow,
+  FREQUENCIES,
   FUSD,
   lines,
   payslipToRow,
   rowToPayslip,
   teamFromCsv,
   teamToCsv,
+  type PriorYear,
   type RunSettings,
   type TeamRow,
 } from "../lib/payroll";
@@ -49,7 +51,10 @@ function PayrollDesk({ employer }: { employer: string }) {
     employerName: "",
     period: thisMonth(),
     payDate: today(),
+    payFrequency: "monthly",
   });
+  // Each person's earlier pay this year, found at the check step from your own copies.
+  const [prior, setPrior] = useState<{ totals: Map<string, PriorYear>; runs: number }>({ totals: new Map(), runs: 0 });
   const [rows, setRows] = useState<TeamRow[]>([emptyRow()]);
   const [stage, setStage] = useState<Stage>({ kind: "edit" });
   const [problems, setProblems] = useState<Map<number, string>>(new Map());
@@ -79,10 +84,14 @@ function PayrollDesk({ employer }: { employer: string }) {
   const check = () =>
     run(async () => {
       if (!settings.employerName.trim()) throw new Error("add your company's name");
+      const keys = unlockedKeys(employer);
+      if (!keys) throw new Error("unlock your Cista key first: it adds up the year so far from your own copies of earlier runs");
+      const year = await priorYear(await api.myRuns(), settings.period, keys);
+      setPrior(year);
       const found = new Map<number, string>();
       const payslips = rows.map((r, i) => {
         try {
-          return rowToPayslip(r, settings);
+          return rowToPayslip(r, settings, year.totals.get(r.address.trim()));
         } catch (e) {
           found.set(i, (e as Error).message);
           return null;
@@ -115,7 +124,7 @@ function PayrollDesk({ employer }: { employer: string }) {
   const sign = () =>
     run(async () => {
       if (stage.kind !== "checked") return;
-      const payRun = buildRun(rows.map((r) => rowToPayslip(r, settings)));
+      const payRun = buildRun(rows.map((r) => rowToPayslip(r, settings, prior.totals.get(r.address.trim()))));
       const signed = await signRun(payRun);
       setStage({ kind: "signed", recipients: stage.recipients, run: payRun, signed });
     });
@@ -185,7 +194,13 @@ function PayrollDesk({ employer }: { employer: string }) {
       if (slips.length === 0) throw new Error("that run has no payslips stored");
       setRows(slips.map(payslipToRow));
       const payDate = slips[0]!.payDate;
-      setSettings((s) => ({ ...s, employerName: slips[0]!.employer.name, period: nextPeriod(r.run.period), payDate: nextPayDate(payDate) }));
+      setSettings((s) => ({
+        ...s,
+        employerName: slips[0]!.employer.name,
+        period: nextPeriod(r.run.period),
+        payDate: nextPayDate(payDate),
+        payFrequency: slips[0]!.payFrequency ?? s.payFrequency,
+      }));
       setProblems(new Map());
       setStage({ kind: "edit" });
     });
@@ -209,10 +224,17 @@ function PayrollDesk({ employer }: { employer: string }) {
             <label htmlFor="paydate">Pay date</label>
             <input id="paydate" type="date" disabled={locked} value={settings.payDate} onChange={(e) => setSettings({ ...settings, payDate: e.target.value })} />
           </div>
+          <div className="field">
+            <label htmlFor="freq">Pay frequency</label>
+            <select id="freq" disabled={locked} value={settings.payFrequency} onChange={(e) => { setSettings({ ...settings, payFrequency: e.target.value as RunSettings["payFrequency"] }); setStage({ kind: "edit" }); }}>
+              {FREQUENCIES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+          </div>
         </div>
         <p className="small muted">
           Payslips are in US dollars and paid in fUSD, one to one. Every payslip also answers "is net pay at least…" for a ladder of bands from $250 to
-          $50,000 a month, so employees can prove a band or a range without showing the amount.
+          $50,000 a pay period, and carries year-to-date totals added up from your earlier paid runs this year, so employees can prove a band, a
+          range or "earned at least $X this year" without showing the amount.
         </p>
       </div>
 
@@ -229,7 +251,7 @@ function PayrollDesk({ employer }: { employer: string }) {
           </div>
         </div>
         <p className="small muted">
-          Monthly amounts in US dollars. Paying the same team again? Start from an earlier run: your key opens your own sealed copy and fills the
+          Amounts per pay period, in US dollars. Employer pension is paid by you on top of pay, not taken from it. Paying the same team again? Start from an earlier run: your key opens your own sealed copy and fills the
           table in, a month on. Cista never stores your team in the clear. One QoreX account is one company; each team keeps its own runs.
         </p>
         <div className="table-wrap">
@@ -237,7 +259,7 @@ function PayrollDesk({ employer }: { employer: string }) {
             <thead>
               <tr>
                 <th>Address</th><th>Name</th><th>Staff ID</th><th>Role</th><th>Start date</th>
-                <th className="num">Basic</th><th className="num">Allowances</th><th className="num">Bonus</th><th className="num">Tax</th><th className="num">Pension</th><th className="num">Other ded.</th>
+                <th className="num">Basic</th><th className="num">Allowances</th><th className="num">Bonus</th><th className="num">Tax</th><th className="num">Pension</th><th className="num">Other ded.</th><th className="num">Employer pension</th>
                 <th className="num">Net</th><th />
               </tr>
             </thead>
@@ -252,7 +274,7 @@ function PayrollDesk({ employer }: { employer: string }) {
                       </td>
                     ))}
                     <td><input aria-label="start date" type="date" disabled={locked} value={r.employedSince} onChange={(e) => edit(i, { employedSince: e.target.value })} /></td>
-                    {(["basic", "allowances", "bonus", "tax", "pension", "otherDeductions"] as const).map((k) => (
+                    {(["basic", "allowances", "bonus", "tax", "pension", "otherDeductions", "employerPension"] as const).map((k) => (
                       <td key={k} className="num" style={{ minWidth: 100 }}>
                         <input aria-label={k} inputMode="decimal" disabled={locked} value={r[k]} onChange={(e) => edit(i, { [k]: e.target.value })} />
                       </td>
@@ -285,6 +307,7 @@ function PayrollDesk({ employer }: { employer: string }) {
             {stage.kind === "edit" && <button className="btn small" disabled={busy} onClick={check}>{busy ? "Checking…" : "Check"}</button>}
             {stage.kind === "checked" && (
               <p className="small muted">
+                Year to date: added up from {prior.runs === 0 ? "this run alone (no earlier paid runs this year)" : `${prior.runs} earlier paid run${prior.runs === 1 ? "" : "s"} this year and this one`}.{" "}
                 {[...stage.recipients.values()].filter((r) => r.mode === "hybrid").length} of {stage.recipients.size} payslips will be sealed with ML-KEM-1024 + X25519; the rest with ML-KEM-1024 alone.
               </p>
             )}
