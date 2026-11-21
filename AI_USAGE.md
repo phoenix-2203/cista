@@ -20,13 +20,15 @@ No AI service is called at runtime. Cista has no model and no API key.
 | Name | Picked **Cista** after rejecting many AI-sounding names. | Checked each candidate for clashes in payroll, crypto and the fest. |
 | Decisions | Chose a server on his own VPS holding ciphertext only, one transaction paying the whole team, and the employer, employee and auditor as readers. | Laid out the options with their trade-offs. |
 | Code | Reviews the work and pushes every commit himself. | Writes the TypeScript: the core library (payslip model, commitments, Merkle tree, sealing, signatures, payment and proof checks) and the server. |
+| Testnet | Ran the deploy script and the Q-Day drill on his Mac from a throwaway testnet account, and every real pay run, payslip and proof from QoreX. | Wrote `CistaVerifier`, its local-EVM tests, the deploy script and the drill; read the results back from the chain and wrote [audit.md](audit.md). |
 | Writing | Set the README's requirements. | Writes the README, this file and the fest form text. |
 
 ## How the AI's work is checked
 
-- **Tests and types on every change:** `pnpm test` and type checks before each commit (195 tests so far, plus a browser check of the verify page).
+- **Tests and types on every change:** `pnpm test` and type checks before each commit (210 tests so far, plus a browser check of the proof page, a live Q-Day drill and a live check of the contract).
 - **Independent test vectors:** the pinned commitment and Merkle root values were recomputed in Python, separately from the TypeScript code.
 - **Attacks in the tests, not just happy paths:** a one-kobo change, fields spliced from another payslip, envelopes filed under the wrong employee, classical-only signatures (what a stolen ECDSA key can make), forged signers, payments that pay less than signed.
+- **Live, not mocked, where it matters:** the contract was checked against a real pay run signed in QoreX, and the Q-Day drill ran its 8 attacks against the live testnet and site ([docs/qday-drill.md](docs/qday-drill.md)).
 - **Small, reviewable commits**, pushed one by one, at the human's request.
 
 ## Safety rules the AI follows
