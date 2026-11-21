@@ -10,7 +10,7 @@ It is not a third-party audit. What Cista does not protect is listed under **Lim
 | Commit audited | the commit that adds this file |
 | Contract | `CistaVerifier` at [`0xF26924d19029d1F1A253a3e079b16fD68B8519d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) (testnet, block 10,503,663) |
 | Wallet | QoreX browser extension, testnet, capabilities `signArbitrary` and `signAndBroadcast` |
-| Automated tests | 238, all passing: 160 core library, 30 server, 32 web app, 16 contract (local EVM), plus a browser check of the proof page and of passkey unlock |
+| Automated tests | 239, all passing: 160 core library, 30 server, 32 web app, 17 contract (local EVM), plus a browser check of the proof page and of passkey unlock |
 
 ## Summary
 
@@ -18,7 +18,7 @@ It is not a third-party audit. What Cista does not protect is listed under **Lim
 | --- | --- | --- | --- |
 | Stolen classical key, live (Q-Day drill) | 8 | 8 blocked | [docs/qday-drill.md](docs/qday-drill.md) |
 | On-chain verifier, live | 2 | 2 passed | a real QoreX-signed run verified; the same run with the total raised by 1 refused |
-| On-chain verifier, local EVM | 16 tests | 16 | `packages/contracts/test` |
+| On-chain verifier, local EVM | 17 tests | 17 | `packages/contracts/test` |
 | Sealing, commitments, signatures, proofs, the key vault | 160 tests | 160 | `packages/core/test` |
 | Server API (sign-in, key cards, runs, re-seal, payments, eth_call relay) | 30 tests | 30 | `apps/server/test` |
 | Proof page in a real browser | 6 checks | 6 | `apps/web/e2e/verify-page.ts` |

@@ -199,7 +199,7 @@ flowchart TB
 | `packages/core/src/payment.ts`, `bankmsg.ts`, `network.ts` | Reading the payment from the chain; encoding `MsgMultiSend` / `MsgSend` for QoreX; the REST chain reader |
 | `packages/core/src/recovery.ts`, `vault.ts`, `signin.ts` | The 24-word recovery phrase, the Argon2id key vault, the sign-in statement |
 | `packages/contracts/contracts/CistaVerifier.sol` | The on-chain check; on testnet at [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) |
-| `packages/contracts/scripts/deploy.ts`, `qday-drill.ts` | Deploy and check against a real run; the live Q-Day drill |
+| `packages/contracts/scripts/deploy.ts`, `qday-drill.ts`, `team-run.ts` | Deploy and check against a real run; the live Q-Day drill; a live pay run for a team of three |
 | `apps/server/src/app.ts`, `db.ts` | The API (sign-in, key cards, pay runs, re-seal, payments, inbox, eth_call relay) and its SQLite store |
 | `apps/web/src/lib/qorex.ts` | QoreX: connect, sign text, send messages |
 | `apps/web/src/lib/keys.ts`, `tabkey.ts`, `passkey.ts` | Keys from the phrase, unlock, recover, start over; staying unlocked in the tab; passkey unlock (WebAuthn PRF) |
@@ -216,7 +216,7 @@ Node 22.13 or newer and pnpm 10.
 
 ```bash
 pnpm install
-pnpm test                               # core, server, web and contract tests (238)
+pnpm test                               # core, server, web and contract tests (239)
 pnpm --filter @cista/server start       # server on http://127.0.0.1:8787
 CISTA_DOMAIN=localhost:5173 pnpm --filter @cista/server start   # for local development
 pnpm --filter @cista/web dev            # http://localhost:5173 (proxies /api and /lcd-testnet)
