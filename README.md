@@ -2,65 +2,92 @@
 
 [![Built on QoreChain](https://build.qorechain.io/badge/cista.svg)](https://build.qorechain.io/p/cista)
 
-Sealed payroll on QoreChain: everyone gets paid, only you see your payslip.
+**Sealed payroll on QoreChain: everyone gets paid, only you see your payslip.**
 
-Cista runs payroll on the QoreChain testnet (`qorechain-diana`):
+Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 in the employer's browser before they go anywhere. One hybrid-signed transaction pays the whole team in fUSD. And an employee can prove one fact about their pay (who employs them, that they earn at least $2,500 a month, that they earn between $2,500 and $3,000) to a lender or landlord without handing over the payslip. The lender checks it with no wallet, and a contract can check it on chain.
 
-- **Sealed payslips.** Each payslip is sealed in the browser with ML-KEM-1024 (QoreSeal) to the employee's key, which the employee vouched for with a key card signed by their ML-DSA-87 key registered on chain. The server stores ciphertext only.
-- **One payment, one fingerprint.** A single hybrid-signed (secp256k1 + ML-DSA-87) transaction pays the whole team in fUSD and carries the pay run's fingerprint in its memo.
-- **Proof of pay, without the payslip.** An employee can show a lender one fact (net pay, employer, "salary above ₦X") and keep the rest sealed. The lender checks it without a wallet.
+- **Try it:** https://cista.duckdns.org (QoreChain testnet; sign in with the QoreX browser extension)
+- **Built for:** [Build Before Q-Day](https://build.qorechain.io), the **Encrypted Apps** track
+- **Proven on testnet:** real pay runs, a contract checking the employer's real QoreX signature on chain, and a Q-Day drill with 8 of 8 attacks refused. See [Proven on testnet](#proven-on-testnet) and [audit.md](audit.md).
 
-Work in progress for QoreChain's [Build Before Q-Day](https://build.qorechain.io) fest, **Encrypted Apps** track. Testnet only.
+## Contents
 
-## Status
+- [The problem](#the-problem)
+- [What Cista does](#what-cista-does)
+- [Try it in five minutes](#try-it-in-five-minutes)
+- [How a pay run works](#how-a-pay-run-works)
+- [Proof of pay](#proof-of-pay)
+- [On-chain proof of income](#on-chain-proof-of-income)
+- [Keys, recovery and re-sealing](#keys-recovery-and-re-sealing)
+- [Proven on testnet](#proven-on-testnet)
+- [How it compares](#how-it-compares)
+- [Why it matters for Q-Day](#why-it-matters-for-q-day)
+- [Trust model and limits](#trust-model-and-limits)
+- [Architecture](#architecture)
+- [Run it](#run-it) · [Deploy](#deploy) · [Credits](#credits)
 
-| Part | State |
+## The problem
+
+A payslip is one of the most sensitive files a company holds: salary, tax, pension, role, start date. On a public chain, paying salaries normally publishes them. Encrypting them with today's public-key cryptography only delays that: anything copied now can be opened once a quantum computer breaks the key exchange ("harvest now, decrypt later").
+
+Confidential payroll fixes the first part but makes a new problem. Employees still have to prove their income to banks, landlords and embassies, and a confidential salary is one nobody else can verify. A developer on Zama's own forum put it plainly: with FHE payroll, ["the salary is confidential… but unverifiable to third parties"](https://community.zama.org/t/confidential-payroll/4350). Today the employee's only option is to hand over the whole payslip, which shows far more than the lender needs and is easy to fake.
+
+## What Cista does
+
+| For | What they get |
 | --- | --- |
-| Core library (`packages/core`) | Built: payslip model, field commitments, pay-run fingerprint, sealing, signatures, bank messages, recovery phrase, key vault, payment check, proof of pay. 154 tests |
-| Server (`apps/server`) | Built: sign-in, key cards, pay runs, re-seal, payments, employee inbox. 28 tests |
-| Web app (`apps/web`) | Built: keys with recovery phrase, employer pay run in fUSD and re-seal, employee payslips, standard proof types, lender check page. 13 tests, plus a browser check of the proof page |
-| `CistaVerifier` contract (`packages/contracts`) | Deployed on testnet; checks a pay run's ML-DSA-87 signature and payslip fields on chain. 15 tests on a local EVM |
-| Security | [audit.md](audit.md): threat model, live Q-Day drill (8 of 8 attacks blocked), findings, limitations |
-| Live | https://cista.duckdns.org |
+| **Employers** | A team table (or a CSV), five steps: check everyone's keys and the balance, sign the pay run once in QoreX, seal and upload the payslips, pay everyone in one transaction, and have the payment checked on chain. Re-seal past payslips for an employee who lost their key. |
+| **Employees** | Payslips that open only in their browser, each checked against the pay run their employer signed. A proof of pay made in three steps: what to prove, who it's for and until when, and a preview of exactly what they will see. |
+| **Lenders and landlords** | A link that opens a check page: plain sentences ("Net pay for 2026-11 was at least $2,500.00 and less than $3,000.00"), who the proof was made for, every check that passed, and a "Check on chain" button. No wallet, no account. |
+| **Other contracts** | `CistaVerifier`, a contract that checks the same proof with QoreChain's own post-quantum precompiles. |
 
-## Proven on testnet
+## Try it in five minutes
 
-| What | Where |
-| --- | --- |
-| A real pay run paid by QoreX with one `MsgMultiSend`, hybrid-signed (the chain reports `pqc_hybrid_verify … status=verified` for the employer), carrying the run root `aa1868d9…4ce1` in its memo | [`F205402C…7A6FDF`](https://explore.qore.network/tx/F205402C3F9EABF2E393F5D83B71EE1E016791516F3F3B8356D7E15E787A6FDF), block 10,442,970, 20 Nov 2026 |
-| A pay run paid in **fUSD** by QoreX with one `MsgMultiSend` of the native denom `erc20:0x9714…63CA` (10 fUSD), hybrid-signed by the employer, run root `47f10efc…649f` in its memo | [`A3978B6A…780DA5`](https://explore.qore.network/tx/A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5), block 10,502,279, 21 Nov 2026 |
-| `CistaVerifier` deployed (a 1-transaction EVM window opened with a hybrid signature, then the deployment) | [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8), tx `0xbbde1593…a49b2`, block 10,503,663 |
-| The chain's PQC precompiles verified the employer's real QoreX signature on that fUSD run inside `CistaVerifier`; the same run with the total raised by one unit was refused (`BadSignature`) | `pnpm --filter @cista/contracts deploy:testnet`, 333,239 gas |
-| Q-Day drill: an attacker with only a stolen classical key tried 8 attacks on the chain, the server, a forged proof and the contract; all 8 were refused | [docs/qday-drill.md](docs/qday-drill.md) |
-| The employee opened the sealed payslip in the browser, made a proof of pay (employer, period, net pay) for "Test Bank", and the check page passed all five checks with no wallet | https://cista.duckdns.org/verify |
+You need Chrome with QoreX on testnet (in the extension, tap the version number 7 times, then "Switch to testnet (diana)"), two QoreX accounts, and some test fUSD and QOR for the one that pays ([faucet](https://dashboard.qorechain.io/faucet)).
 
-The first run paid in QOR; pay runs now pay in fUSD (see "Money" below). A proof of employment from the fUSD run ("Employed by … since …, and on the payroll for 2026-11", made for a loan) also passed every check.
+1. **Both accounts, on My key:** sign in with QoreX, make a key (write down the 24-word recovery phrase), then sign and publish the key card.
+2. **Employer, on Run payroll:** add the other account to the team with a small salary, then press through Check, Sign the run, Seal and upload, and Pay.
+3. **Employee, on My payslips:** open the payslip, then under Prove your pay pick "Income in a range", name who it's for, and sign.
+4. **Anyone:** open the link. Press "Check on chain" to have the contract check it too.
 
-## How it works
+## How a pay run works
 
 ```
 payslip fields ──salted SHA-256──▶ field commitments ──Merkle──▶ slip root   (one per payslip)
 slip roots     ──────────────────────────────────────Merkle──▶ run root    (one per pay run)
 ```
 
-1. **The employer builds the pay run** in the browser. Every payslip field (net pay, PAYE, pension, payout address, "net pay is at least ₦250,000"…) is committed on its own with a 32-byte salt, so each field can later be shown alone. Amounts are kept in kobo as integers.
-2. **The employer signs the run root in QoreX** (`signArbitrary`, hybrid secp256k1 + ML-DSA-87). The statement is readable text: chain, employer, period, number of payslips, total payout, run root.
-3. **Each payslip is sealed** with QoreSeal (ML-KEM-1024 + X25519) to the employee and the employer, so the employer can re-seal it if the employee loses their key. The envelope is bound to its chain, employer, period, employee and run root, padded to a fixed size, and does not say who it is for.
-4. **One transaction pays the team**, hybrid-signed, with `cista:v1:<run root>` in its memo. The server only records it once the chain shows it pays exactly the signed total, from the employer, with the employer's ML-DSA-87 signature verified.
-5. **The employee opens their payslip** and checks it against the signed run root.
-6. **Proof of pay.** The employee picks fields to show and signs a short statement naming who the proof is for and when it expires. A lender checks, with no wallet: the fields come from the payslip unchanged, the employee and the employer signed with their registered ML-DSA-87 keys, the run was paid on chain, and (if shown) the payout reached the employee.
+1. **The employer builds the pay run in the browser.** Every payslip field (net pay, tax, pension, role, start date, payout address, "net pay is at least $2,500"…) is committed on its own with a 32-byte salt, so each can later be shown alone. Amounts are integers in cents.
+2. **The employer signs the run in QoreX** (`signArbitrary`, hybrid secp256k1 + ML-DSA-87). What they sign is readable text: chain, employer, period, number of payslips, total payout, run root.
+3. **Each payslip is sealed** with QoreSeal (ML-KEM-1024 + X25519) to the employee and to the employer. The envelope is bound to its chain, employer, period, employee and run root, padded to a fixed size, and doesn't say who it's for. Only after the employee's key card checks out against their ML-DSA-87 key on chain.
+4. **One transaction pays the team:** a `MsgMultiSend` of fUSD from QoreX, hybrid-signed, with `cista:v1:<run root>` in its memo. The server records it only once the chain shows it pays exactly the signed total, from the employer, with the employer's ML-DSA-87 signature verified.
+5. **The employee opens their payslip** in the browser and checks it against the signed run root.
 
-**Money.** Payslips are in US dollars and paid in fUSD, the fest's dollar stablecoin, one to one, as stablecoin payrolls do (Bron's confidential payroll on Ethereum paid in USDT). fUSD is an ERC-20 token that also exists on QoreChain's native lane as the bank denom `erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA` (6 decimals), so one hybrid-signed `MsgMultiSend` from QoreX still pays the whole team. Transaction fees are paid in QOR.
+**Money.** Payslips are in US dollars and paid in fUSD, the fest's dollar stablecoin, one to one, as stablecoin payrolls do (Bron's [confidential payroll on Ethereum](https://www.zama.org/solutions/confidential-onchain-payroll) paid in USDT). fUSD is an ERC-20 token that also exists on QoreChain's native lane as the bank denom `erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA` (6 decimals), so one `MsgMultiSend` from QoreX pays everyone. Fees are paid in QOR.
 
-**Proof types.** The employee picks one of the standard verification types lenders and landlords ask for, or a custom set of lines: employment (employer, role, start date), income above an amount, income in a range, or exact pay with the on-chain payment. Every payslip answers "is net pay at least $X?" for a ladder of 23 bands from $250 to $50,000 a month, so "income above" is one band and "income in a range" is a band answered yes plus the next one answered no: the amount itself is never shown. Zama's own developer forum notes that FHE payrolls keep salaries confidential but leave them unverifiable to banks and landlords; its planned fix is time-limited decryption for another wallet. Cista's proofs need no wallet on the lender's side, reveal a band rather than the amount, are tied to the actual payment, name who they are for, and expire.
+## Proof of pay
 
-**Keys.** Each person makes their sealing keys in the browser from a 24-word recovery phrase, shown once (QoreSeal's standard derivation from a BIP-39 phrase; it is not the wallet's seed phrase and holds no funds). A password locks a copy in the browser, and the key stays unlocked in that tab for up to 30 minutes of inactivity, wrapped by a non-extractable WebCrypto key. A forgotten password is recovered with the phrase, the way Proton handles data recovery; if both are lost, the employee makes a new key and the employer re-seals past payslips to it, since every payslip is also sealed to the employer.
+The employee picks one of the verification types lenders and landlords already ask for (the industry splits them into verification of employment and verification of income), or a custom set of lines:
 
-**Key cards.** Each person also publishes a key card: their ML-KEM-1024 key's SHA3-256 and their X25519 key, signed in QoreX. An employer only seals to keys whose card verifies against the employee's ML-DSA-87 key registered on chain, so a server that swaps in its own key is caught. We meant to register the ML-KEM key in the chain's KEM registry too, but QoreX refuses `MsgRegisterKEMKey` from websites ("managed by the wallet itself"), so the signed card carries it instead; Cista still falls back to a registry key when an account has one and no card.
+| Proof type | Shows | Never shows |
+| --- | --- | --- |
+| **Employment** | employer, role, employed since, on the payroll for the period | any pay |
+| **Income above an amount** | employer, period, "net pay is at least $X" | the amount |
+| **Income in a range** | employer, period, "at least $X" and "less than $Y" | the amount |
+| **Exact pay** | net and gross pay, and the payment that reached the employee on chain | anything else |
+| **Custom** | the lines the employee ticks, grouped as Employment, Pay, Paid on chain, Payslip lines | the rest |
 
-Every signature is checked against the key registered on chain, never a key the signature brings along. A signature with only the classical (secp256k1) part is refused: that is the part a quantum computer could forge.
+Every payslip answers "is net pay at least $X?" for a ladder of 23 bands from $250 to $50,000 a month, so a range is one band answered yes plus the next answered no. The proof also always shows the employee's account and the currency.
 
-**What stays public:** payment amounts and addresses, like every transfer on chain, and the fact that an address received a payslip. What stays sealed: who the person is, their gross pay, tax, deductions, role and personal details.
+The employee signs each proof for a named recipient and an expiry date (both in the signed text). The check page, with no wallet:
+
+1. the shown fields come from one payslip in the pay run, unchanged;
+2. the employee signed the proof with their registered ML-DSA-87 key, for this recipient, and it hasn't expired;
+3. the employer signed the pay run with their registered ML-DSA-87 key;
+4. the proof and the signed run are the same run;
+5. the chain paid that run, hybrid-signed by the employer (and, if shown, the payout reached the employee).
+
+The proof travels in the link's `#fragment`, which browsers don't send to any server.
 
 ## On-chain proof of income
 
@@ -72,7 +99,102 @@ require(employee == msg.sender, "not your payslip");
 // then read the revealed fields, e.g. "net.atLeast.250000" == "yes"
 ```
 
-`verifyFields` rebuilds the text the employer signed, gets the employer's ML-DSA-87 key from the PQC Key Status precompile (`0x…0a02`), checks the signature with the PQC Verify precompile (`0x…0a01`), then checks each field's salted commitment up the two Merkle trees to the signed run root. It holds nothing and has no owner. A check costs about 330,000 gas, almost all of it the ML-DSA-87 verification. The same construction as the TypeScript library, kept in step by shared test values.
+`verifyFields` rebuilds the text the employer signed, gets the employer's ML-DSA-87 key from the PQC Key Status precompile (`0x…0a02`), checks the signature with the PQC Verify precompile (`0x…0a01`), then checks each field's salted commitment up the two Merkle trees to the signed run root. It holds nothing, stores nothing and has no owner; it reverts rather than passing when a precompile isn't there. A check costs about 330,000 gas, almost all of it the ML-DSA-87 verification. It uses the same construction as the TypeScript library, kept in step by shared test values. The check page's "Check on chain" button asks it the same question.
+
+## Keys, recovery and re-sealing
+
+- **Keys come from a 24-word recovery phrase,** shown once (QoreSeal's standard derivation from a BIP-39 phrase). It is not the QoreX seed phrase and holds no funds: it only opens payslips.
+- **A password locks a copy in the browser** (PBKDF2-SHA-256, 600,000 rounds; AES-256-GCM; bound to the account). Once unlocked, the key stays unlocked in that tab only, wrapped by a non-extractable WebCrypto key, until the tab closes or sits idle for 30 minutes.
+- **Forgot the password?** The phrase rebuilds the same key, and every payslip opens again (the model [Proton uses](https://proton.me/support/recover-encrypted-messages-files) for data recovery).
+- **Lost both?** The employee makes a new key, and the employer presses Re-seal: they open their own copy of each payslip and seal it again to the new key.
+- **Key cards.** Each person publishes a QoreSeal recipient card: their ML-KEM-1024 key's SHA3-256 and their X25519 key, signed in QoreX. Employers only seal to cards that verify against the employee's ML-DSA-87 key registered on chain, so a server that swaps in its own key is caught. (QoreX refuses `MsgRegisterKEMKey` from websites, "managed by the wallet itself", so the signed card carries the ML-KEM key; a key in the chain's KEM registry is used when an account has one and no card.)
+
+## Proven on testnet
+
+| What | Where |
+| --- | --- |
+| A pay run paid by QoreX with one `MsgMultiSend`, hybrid-signed (the chain reports `pqc_hybrid_verify … status=verified` for the employer), run root `aa1868d9…4ce1` in its memo | [`F205402C…7A6FDF`](https://explore.qore.network/tx/F205402C3F9EABF2E393F5D83B71EE1E016791516F3F3B8356D7E15E787A6FDF), block 10,442,970, 20 Nov 2026 |
+| A pay run paid in **fUSD** by QoreX with one `MsgMultiSend` of the native denom `erc20:0x9714…63CA` (10 fUSD), hybrid-signed, run root `47f10efc…649f` in its memo | [`A3978B6A…780DA5`](https://explore.qore.network/tx/A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5), block 10,502,279, 21 Nov 2026 |
+| The employee opened each sealed payslip in the browser and made proofs (employer, period and net pay; employment, made for a loan) that passed every check, with no wallet | https://cista.duckdns.org/verify |
+| A payslip sealed to a replaced key, re-sealed by the employer and opened again by the employee | Re-seal on the fUSD run |
+| `CistaVerifier` deployed (a 1-transaction EVM window opened with a hybrid signature, then the deployment) | [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8), tx `0xbbde1593…a49b2`, block 10,503,663 |
+| The chain's PQC precompiles verified the employer's real QoreX signature on the fUSD run inside `CistaVerifier`; the same run with the total raised by one unit was refused (`BadSignature`) | `pnpm --filter @cista/contracts deploy:testnet`, 333,239 gas |
+| Q-Day drill: an attacker with only a stolen classical key tried 8 attacks on the chain, the server, a forged proof and the contract; all 8 were refused | [docs/qday-drill.md](docs/qday-drill.md) |
+
+The first run paid in QOR; pay runs now pay in fUSD.
+
+## How it compares
+
+| | Payslip content | Pay amounts on chain | Prove income to a third party | Third party needs | Tied to the real payment | Post-quantum |
+| --- | --- | --- | --- | --- | --- | --- |
+| Plain on-chain payroll | public | public | show the transactions | an explorer | yes | no |
+| Zama / Bron FHE payroll | encrypted | encrypted | time-limited decryption for another wallet, [planned](https://community.zama.org/t/confidential-payroll/4350); the value itself is revealed | a wallet | — | FHE (lattice-based) |
+| [X-PACT](https://github.com/X-PACT/confidential-payroll) (Zama submission) | encrypted | encrypted | yes/no for a range the employee picks, decrypted by Zama's gateway | an Ethereum address | points to the run | FHE (lattice-based) |
+| Employment-verification services | held by the service | — | the whole salary record, shared by the employer | an account, a fee | no | no |
+| **Cista** | **sealed (ML-KEM-1024 + X25519)** | public | **any lines, a band or a range; signed for one recipient, with an expiry** | **nothing (or a contract call)** | **yes** | **ML-KEM-1024, ML-DSA-87** |
+
+Cista keeps amounts public on chain, where FHE payrolls hide them; in exchange it needs no FHE network, and its proofs need no wallet on the other side.
+
+## Why it matters for Q-Day
+
+Payslips have a long shelf life: a salary history copied today is still sensitive in ten years. Cista seals them with ML-KEM-1024 (with X25519, so both would have to fall), and every signature that matters is ML-DSA-87, checked against the key registered on chain:
+
+- An attacker who recovers an account's classical key can't pay, sign in, sign a pay run, publish a key card or make a proof. The [Q-Day drill](docs/qday-drill.md) tried all of these live: 8 of 8 refused.
+- A copy of Cista's database holds only ML-KEM-1024 envelopes.
+- Every proof can be re-checked on chain by the chain's own post-quantum precompiles.
+
+## Trust model and limits
+
+Full detail in [audit.md](audit.md). In short:
+
+- **Payment amounts are public,** like every transfer on chain. Who the employee is, gross pay, tax, deductions, role and personal details stay sealed.
+- **The server** knows which addresses an employer pays and when, and can withhold payslips. It can't read them, swap keys, move envelopes or forge payments without being caught.
+- **The browser is the trust boundary:** a hacked server could serve a changed web app. "Check on chain" and `CistaVerifier` let a lender rely on the contract instead.
+- **Pay bands are fixed in advance** (23 of them); any range at all would need a zero-knowledge proof.
+- **If both the employee and the employer lose their keys and phrases,** nobody can open those payslips. That's what sealing means.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser["Browser + QoreX extension"]
+        Web["Cista web app (React)<br/>seals · opens · makes and checks proofs"]
+        QX["QoreX<br/>signArbitrary · signAndBroadcast<br/>hybrid secp256k1 + ML-DSA-87"]
+    end
+    subgraph VPS["Small VPS"]
+        Caddy["Caddy: static files, strict CSP<br/>+ read-only /lcd-testnet relay"]
+        Server["Cista server (Hono + SQLite)<br/>sign-in · key cards · sealed payslips (ciphertext)<br/>pay runs · payments · eth_call relay"]
+    end
+    subgraph Chain["QoreChain testnet (qorechain-diana)"]
+        REST["REST: PQC key registry · transactions · balances"]
+        Bank["bank: MsgMultiSend in fUSD<br/>memo = run root"]
+        Verifier["CistaVerifier<br/>→ PQC Key Status 0x…0a02<br/>→ PQC Verify 0x…0a01"]
+    end
+    Web -->|sign, pay| QX -->|hybrid-signed txs| Bank
+    Web --> Caddy --> Server
+    Caddy -->|read keys, payments| REST
+    Server -->|check signatures, payments| REST
+    Server -->|read-only eth_call| Verifier
+```
+
+| Path | What it is |
+| --- | --- |
+| `packages/core/src/payslip.ts`, `codec.ts` | The payslip model and its strict JSON form; amounts as integers |
+| `packages/core/src/commit.ts`, `merkle.ts`, `run.ts` | Salted field commitments, the padded SHA-256 Merkle tree, slip and run roots, the memo and the signed statement |
+| `packages/core/src/seal.ts` | Sealing and opening payslips with QoreSeal, bound to their place, padded |
+| `packages/core/src/disclose.ts`, `sign.ts`, `verify.ts` | Selective disclosure, the signed proof statement, and the full check a lender runs |
+| `packages/core/src/payment.ts`, `bankmsg.ts`, `network.ts` | Reading the payment from the chain; encoding `MsgMultiSend` / `MsgSend` for QoreX; the REST chain reader |
+| `packages/core/src/recovery.ts`, `vault.ts`, `signin.ts` | The 24-word recovery phrase, the password-locked key vault, the sign-in statement |
+| `packages/contracts/contracts/CistaVerifier.sol` | The on-chain check; on testnet at [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8) |
+| `packages/contracts/scripts/deploy.ts`, `qday-drill.ts` | Deploy and check against a real run; the live Q-Day drill |
+| `apps/server/src/app.ts`, `db.ts` | The API (sign-in, key cards, pay runs, re-seal, payments, inbox, eth_call relay) and its SQLite store |
+| `apps/web/src/lib/qorex.ts` | QoreX: connect, sign text, send messages |
+| `apps/web/src/lib/keys.ts`, `tabkey.ts` | Keys from the phrase, unlock, recover, start over; staying unlocked in the tab |
+| `apps/web/src/lib/payroll.ts`, `payrun.ts`, `reseal.ts` | The team table to payslips; the five pay-run steps; re-sealing |
+| `apps/web/src/lib/fields.ts`, `onchain.ts` | Proof types and plain-language claims; the "Check on chain" call |
+| `apps/web/src/pages/` | Home, My key, Run payroll, My payslips (with the proof maker), Check a proof |
+| `deploy/` | Caddy site, systemd unit and a one-command VPS setup |
+| [`audit.md`](audit.md), [`docs/qday-drill.md`](docs/qday-drill.md) | The security audit and the live drill results |
 
 ## Run it
 
@@ -80,13 +202,22 @@ Node 22.13 or newer and pnpm 10.
 
 ```bash
 pnpm install
-pnpm test                       # core library and server tests
-pnpm --filter @cista/server start   # server on http://127.0.0.1:8787
+pnpm test                               # core, server, web and contract tests (213)
+pnpm --filter @cista/server start       # server on http://127.0.0.1:8787
+CISTA_DOMAIN=localhost:5173 pnpm --filter @cista/server start   # for local development
+pnpm --filter @cista/web dev            # http://localhost:5173 (proxies /api and /lcd-testnet)
 ```
 
-For the web app in development, run the server with `CISTA_DOMAIN=localhost:5173`, then `pnpm --filter @cista/web dev`. The browser check of the verify page needs Playwright: `pnpm --filter @cista/web build && pnpm --filter @cista/web preview`, then `pnpm --filter @cista/web e2e:verify`.
+The server takes `CISTA_PORT`, `CISTA_DB`, `CISTA_DOMAIN`, `CISTA_REST`, `CISTA_CHAIN_ID`, `CISTA_EVM_RPC` and `CISTA_VERIFIER` from the environment. It needs no keys or secrets: it signs nothing.
 
-The server takes `CISTA_PORT`, `CISTA_DB`, `CISTA_DOMAIN`, `CISTA_REST` and `CISTA_CHAIN_ID` from the environment. It needs no keys or secrets: it signs nothing.
+The browser check of the proof page needs Playwright: `pnpm --filter @cista/web build && pnpm --filter @cista/web preview`, then `pnpm --filter @cista/web e2e:verify`.
+
+Testnet scripts, from a **throwaway** testnet account in the git-ignored `packages/contracts/.env.seed` (`E2E_MNEMONIC="…"`):
+
+```bash
+pnpm --filter @cista/contracts deploy:testnet    # deploy CistaVerifier and check it against a real run
+pnpm --filter @cista/contracts qday:drill        # the live Q-Day drill
+```
 
 ## Deploy
 
@@ -106,18 +237,18 @@ Open source libraries and QoreChain kits Cista uses:
 | --- | --- | --- |
 | [@qorechain/qoreseal](https://github.com/qorechain/qoreseal) | Apache-2.0 | ML-KEM-1024 + X25519 sealing and signed recipient (key) cards |
 | [@qorechain/qoresign](https://github.com/qorechain/qoresign) | Apache-2.0 | Checking hybrid secp256k1 + ML-DSA-87 signatures; reading registered keys |
-| [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
-| [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
-| [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server |
-| [React](https://github.com/facebook/react) and [Vite](https://github.com/vitejs/vite) | MIT | The web app |
-| [@scure/bip39](https://github.com/paulmillr/scure-bip39) | MIT | The 24-word recovery phrase |
-| [solc](https://github.com/ethereum/solc-js) | MIT (compiler only, not shipped) | Compiling `CistaVerifier` |
-| [@ethereumjs/evm](https://github.com/ethereumjs/ethereumjs-monorepo) | MPL-2.0 (tests only) | Running the contract tests on a local EVM |
-| [viem](https://github.com/wevm/viem) | MIT | Contract calls in the scripts and tests |
 | [@qorechain/sdk](https://www.npmjs.com/package/@qorechain/sdk) and [@qorechain/evm](https://www.npmjs.com/package/@qorechain/evm) | Apache-2.0 | The testnet scripts: hybrid-signed EVM windows, the deployment, the Q-Day drill |
+| [@noble/hashes](https://github.com/paulmillr/noble-hashes) | MIT | SHA-256 and HMAC for field commitments and the Merkle tree |
+| [@scure/bip39](https://github.com/paulmillr/scure-bip39) | MIT | The 24-word recovery phrase |
+| [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
+| [React](https://github.com/facebook/react) and [Vite](https://github.com/vitejs/vite) | MIT | The web app |
+| [viem](https://github.com/wevm/viem) | MIT | Encoding the `CistaVerifier` call; contract calls in the scripts |
+| [solc](https://github.com/ethereum/solc-js) | MIT (compiler only) | Compiling `CistaVerifier` |
+| [@ethereumjs/evm](https://github.com/ethereumjs/ethereumjs-monorepo) | MPL-2.0 (tests only) | Running the contract tests on a local EVM |
+| [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server and scripts |
 | [Vitest](https://github.com/vitest-dev/vitest) and [TypeScript](https://github.com/microsoft/TypeScript) | MIT, Apache-2.0 | Tests and type checking |
 
-The server's store uses `node:sqlite`, built into Node.js.
+The server's store uses `node:sqlite`, built into Node.js. AI use is documented in [AI_USAGE.md](AI_USAGE.md).
 
 ## Licence
 
