@@ -172,7 +172,10 @@ for (const [i, t] of team.entries()) {
         d.fields.map((f) => ({ name: f.name, value: f.value, salt: `0x${f.salt}` as Hex, index: BigInt(f.index), siblings: f.siblings.map((s) => `0x${s}` as Hex) })),
       ],
     })) as readonly [string, string];
-    log(`On chain: ${t.name} earned at least $25,000 this year`, emp === employer.cosmos && who === t.account.cosmos, `CistaVerifier ${deployment.CistaVerifier} returned employer ${emp}, employee ${who}`);
+    // The contract names accounts by their 20 bytes (0x…); a qor1 address is the same 20 bytes in bech32.
+    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    const ok = same(emp, employer.evm) && same(who, t.account.evm);
+    log(`On chain: ${t.name} earned at least $25,000 this year`, ok, `CistaVerifier ${deployment.CistaVerifier} accepted the proof and named employer ${emp} (${employer.cosmos}) and employee ${who} (${t.account.cosmos})`);
   } catch (e) {
     log(`On chain: ${t.name} earned at least $25,000 this year`, false, (e as Error).message.split("\n")[0]!);
   }
