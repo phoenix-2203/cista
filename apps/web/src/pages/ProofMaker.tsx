@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { createDisclosure, encodeProofBundle, proofStatement, type ProofBundle } from "@phoenix-2203/cista";
 import { money, Notice, useAction } from "../components";
-import { ALWAYS, bands, claims, fieldName, fieldValue, GROUPS, presetFields, PROOF_KINDS, PURPOSES, type ProofKind } from "../lib/fields";
+import { ALWAYS, bands, claims, fieldName, fieldValue, GROUPS, perPeriod, presetFields, PROOF_KINDS, PURPOSES, ytdBands, type ProofKind } from "../lib/fields";
 import { signText } from "../lib/qorex";
 import type { InboxEntry } from "./Payslips";
 
@@ -18,12 +18,14 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
   const ladder = useMemo(() => bands(values), [values]);
   const yes = ladder.filter((b) => b.yes);
   const no = ladder.filter((b) => !b.yes);
+  const yearYes = useMemo(() => ytdBands(values).filter((b) => b.yes), [values]);
   const currency = values.currency ?? "USD";
 
   const [kind, setKind] = useState<ProofKind>(yes.length ? "above" : "employment");
   const [above, setAbove] = useState(yes.at(-1)?.name ?? "");
   const [from, setFrom] = useState(yes.at(-1)?.name ?? "");
   const [to, setTo] = useState(no[0]?.name ?? "");
+  const [ytd, setYtd] = useState(yearYes.at(-1)?.name ?? "");
   const [custom, setCustom] = useState<Set<string>>(new Set());
   const [purpose, setPurpose] = useState<(typeof PURPOSES)[number]>("Loan");
   const [who, setWho] = useState("");
@@ -33,8 +35,8 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
   const { busy, error, run } = useAction();
 
   const picked = useMemo(
-    () => (kind === "custom" ? [...custom] : presetFields(kind, values, { above, from, to })),
-    [kind, custom, values, above, from, to],
+    () => (kind === "custom" ? [...custom] : presetFields(kind, values, { above, from, to, ytd })),
+    [kind, custom, values, above, from, to, ytd],
   );
   const shown = useMemo(() => {
     const f: Record<string, string> = { "employee.address": address, currency };
@@ -81,7 +83,10 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
       <h4 className="step-title">1 · What do you need to prove?</h4>
       <div className="choice-grid" role="radiogroup">
         {PROOF_KINDS.map((k) => {
-          const disabled = (k.kind === "above" && yes.length === 0) || (k.kind === "range" && (yes.length === 0 || no.length === 0));
+          const disabled =
+            (k.kind === "above" && yes.length === 0) ||
+            (k.kind === "range" && (yes.length === 0 || no.length === 0)) ||
+            (k.kind === "ytd" && yearYes.length === 0);
           return (
             <button key={k.kind} type="button" role="radio" aria-checked={kind === k.kind} disabled={disabled} className={`choice ${kind === k.kind ? "on" : ""}`} onClick={() => choose(k.kind)}>
               <strong>{k.title}</strong>
@@ -95,7 +100,15 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
         <div className="field" style={{ maxWidth: 360 }}>
           <label htmlFor="above">Net pay is at least</label>
           <select id="above" value={above} onChange={(e) => { setAbove(e.target.value); reset(); }}>
-            {[...yes].reverse().map((b) => <option key={b.name} value={b.name}>{money(b.amount, currency)} a month</option>)}
+            {[...yes].reverse().map((b) => <option key={b.name} value={b.name}>{money(b.amount, currency)} {perPeriod(values)}</option>)}
+          </select>
+        </div>
+      )}
+      {kind === "ytd" && (
+        <div className="field" style={{ maxWidth: 360 }}>
+          <label htmlFor="ytd">Net pay so far this year is at least</label>
+          <select id="ytd" value={ytd} onChange={(e) => { setYtd(e.target.value); reset(); }}>
+            {[...yearYes].reverse().map((b) => <option key={b.name} value={b.name}>{money(b.amount, currency)}</option>)}
           </select>
         </div>
       )}
@@ -132,7 +145,7 @@ export function ProofMaker({ address, entry }: { address: string; entry: InboxEn
               </fieldset>
             );
           })}
-          <p className="small muted">For a pay band or range, use the "Income above" or "Income in a range" proof types.</p>
+          <p className="small muted">For a pay band, a range or the year so far, use the "Income above", "Income in a range" or "Earned this year" proof types.</p>
         </div>
       )}
 

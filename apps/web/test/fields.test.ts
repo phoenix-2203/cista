@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bands, claims, fieldName, fieldValue, presetFields } from "../src/lib/fields";
+import { bands, claims, fieldName, fieldValue, perPeriod, presetFields, ytdBands } from "../src/lib/fields";
 
 const values: Record<string, string> = {
   "employer.name": "Acme",
@@ -54,5 +54,38 @@ describe("proof fields", () => {
     expect(fieldName("deduction.tax")).toBe("Deduction: income tax");
     expect(fieldValue("payout.amount", "2790500000", values)).toBe("2,790.5 fUSD");
     expect(fieldValue("net", "279050", values)).toBe("$2,790.50");
+  });
+});
+
+describe("pay frequency and the year so far", () => {
+  const year: Record<string, string> = {
+    "employer.name": "Acme",
+    period: "2026-11",
+    currency: "USD",
+    payFrequency: "biweekly",
+    "ytd.gross": "3500000",
+    "ytd.net": "2800000",
+    "ytd.net.atLeast.2500000": "yes",
+    "ytd.net.atLeast.3000000": "no",
+  };
+
+  it("names and formats the new fields", () => {
+    expect(fieldName("ytd.net")).toBe("Net pay this year");
+    expect(fieldName("ytd.net.atLeast.2500000")).toBe("Net pay this year is at least $25,000.00");
+    expect(fieldValue("ytd.net", "2800000")).toBe("$28,000.00");
+    expect(fieldValue("payFrequency", "biweekly")).toBe("every two weeks");
+    expect(perPeriod({ payFrequency: "weekly" })).toBe("a week");
+    expect(perPeriod({})).toBe("a month");
+  });
+
+  it("proves earnings this year with one band, and reads it as a sentence", () => {
+    expect(presetFields("ytd", year, { ytd: "ytd.net.atLeast.2500000" })).toEqual(["employer.name", "period", "ytd.net.atLeast.2500000"]);
+    expect(claims({ currency: "USD", period: "2026-11", "ytd.net.atLeast.2500000": "yes" })).toContain("Net pay in 2026, up to 2026-11, was at least $25,000.00.");
+    expect(claims({ currency: "USD", "employer.name": "Acme", payFrequency: "biweekly" })[0]).toBe("Employed by Acme, paid every two weeks.");
+  });
+
+  it("keeps monthly bands apart from the year's bands", () => {
+    expect(bands(year)).toEqual([]);
+    expect(ytdBands(year).map((b) => b.yes)).toEqual([true, false]);
   });
 });
