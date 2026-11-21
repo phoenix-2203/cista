@@ -46,6 +46,11 @@ export class TestChain {
     return { result: decodeFunctionResult({ abi: VERIFIER_ABI, functionName, data: ret } as never) as T, gas };
   }
 
+  /** Runs raw calldata against CistaVerifier (as a caller outside the tests built it). */
+  async callRaw(data: Hex) {
+    return this.raw(VERIFIER, data);
+  }
+
   async registerKey(account: Hex, pubkey: Uint8Array) {
     await this.raw(PQC_KEY_STATUS, encodeFunctionData({ abi: artifacts.MockPqcKeyStatus!.abi, functionName: "set", args: [account, toHex(pubkey)] } as never));
   }

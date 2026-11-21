@@ -199,3 +199,19 @@ describe("CistaVerifier: qor1 addresses", () => {
     }
   });
 });
+
+describe("CistaVerifier: the web app's call", () => {
+  it("accepts the exact call the proof page sends, built from a proof bundle", async () => {
+    const { verifyFieldsCall } = await import("../../../apps/web/src/lib/onchain");
+    const { decodeFunctionResult } = await import("viem");
+    const { VERIFIER_ABI } = await import("./evm");
+    const { run, signed, pqSig, message } = signedRun();
+    await chain.allowSignature(employer.pqKey.publicKey, pqSig, message);
+    const disclosure = createDisclosure(run, run.slips[1]!, ["employer.name", "net.atLeast.100000"]);
+    const bundle = { v: 1 as const, proof: { disclosure, terms: { audience: "Bank", expires: "2030-01-01T00:00:00Z" }, signature: signed.signature }, run: signed, paymentTx: "AB".repeat(32) };
+    const { ret } = await chain.callRaw(verifyFieldsCall(bundle));
+    const [emp, who] = decodeFunctionResult({ abi: VERIFIER_ABI, functionName: "verifyFields", data: ret }) as unknown as [string, string];
+    expect(emp.toLowerCase()).toBe(employer.evm);
+    expect(who.toLowerCase()).toBe(bayo.evm);
+  });
+});
