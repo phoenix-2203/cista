@@ -41,6 +41,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cista/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@phoenix-2203/cista':
         specifier: workspace:*
         version: link:../../packages/core
@@ -56,6 +59,9 @@ importers:
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
+      viem:
+        specifier: ~2.53.1
+        version: 2.53.1(typescript@7.0.2)
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

@@ -14,11 +14,13 @@
     "e2e:verify": "tsx e2e/verify-page.ts"
   },
   "dependencies": {
+    "@cista/contracts": "workspace:*",
     "@phoenix-2203/cista": "workspace:*",
     "@qorechain/qoreseal": "^0.1.0",
     "@qorechain/qoresign": "^0.2.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "viem": "~2.53.1"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
