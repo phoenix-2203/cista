@@ -5,6 +5,7 @@ import { PasswordMeter } from "../PasswordMeter";
 import { RECOVERY_WORDS, type Vault } from "@phoenix-2203/cista";
 import { Notice, useAction } from "../components";
 import { downloadVault, recoverKeys, unlockKeys } from "../lib/keys";
+import { pickPositions, sameWord } from "../lib/phrasecheck";
 
 export function UnlockForm({ address, vault, onDone, onForgot }: { address: string; vault?: Vault | null; onDone: () => void; onForgot: () => void }) {
   const [password, setPassword] = useState("");
@@ -50,6 +51,8 @@ export function PhraseView({ phrase, vault, onDone }: { phrase: string; vault: V
     }, 60_000);
   };
   const words = phrase.split(" ");
+  const [checking, setChecking] = useState(false);
+  if (checking) return <PhraseCheck words={words} onBack={() => setChecking(false)} onDone={onDone} />;
   return (
     <div className="card">
       <h3>Write down your recovery phrase</h3>
@@ -75,8 +78,44 @@ export function PhraseView({ phrase, vault, onDone }: { phrase: string; vault: V
         I've written down all {RECOVERY_WORDS} words in order
       </label>
       <div className="row">
-        <button className="btn" disabled={!saved} onClick={onDone}>Continue</button>
+        <button className="btn" disabled={!saved} onClick={() => setChecking(true)}>Continue</button>
         <button className="btn ghost small" onClick={() => downloadVault(vault)}>Also download a password-locked backup</button>
+      </div>
+    </div>
+  );
+}
+
+/** Three words asked back from paper, so a phrase that wasn't written down is caught now, not on the day it's needed. */
+function PhraseCheck({ words, onBack, onDone }: { words: string[]; onBack: () => void; onDone: () => void }) {
+  const [positions] = useState(() => pickPositions(words.length));
+  const [typed, setTyped] = useState<string[]>(() => positions.map(() => ""));
+  const right = positions.map((p, i) => sameWord(typed[i]!, words[p]!));
+  return (
+    <div className="card">
+      <h3>Check your recovery phrase</h3>
+      <p>From what you wrote down, type these three words. The phrase isn't on screen any more, so this checks your paper copy.</p>
+      <div className="grid">
+        {positions.map((p, i) => (
+          <div className="field" key={p}>
+            <label htmlFor={`w${p}`}>Word {p + 1}</label>
+            <input
+              id={`w${p}`}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={typed[i]}
+              aria-invalid={typed[i] !== "" && !right[i]}
+              onChange={(e) => setTyped(typed.map((t, j) => (j === i ? e.target.value : t)))}
+            />
+          </div>
+        ))}
+      </div>
+      {typed.every((t) => t.trim() !== "") && !right.every(Boolean) && (
+        <Notice kind="bad">Not quite. Check the numbering on your paper, or go back and look at the words again.</Notice>
+      )}
+      <div className="row">
+        <button className="btn" disabled={!right.every(Boolean)} onClick={onDone}>Finish</button>
+        <button className="btn ghost small" onClick={onBack}>Show the words again</button>
       </div>
     </div>
   );
