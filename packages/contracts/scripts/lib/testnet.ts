@@ -5,7 +5,7 @@
  * registered post-quantum key. Your QoreX wallet's phrase is never needed.
  */
 import { evmWindowCost, qorechainTestnet } from "@qorechain/evm";
-import { EthNativeSigner, deriveUnifiedAccount, openEvmWindowMsg } from "@qorechain/sdk";
+import { EthNativeSigner, buildRegisterPqcKeyMsg, deriveUnifiedAccount, openEvmWindowMsg, signProofOfPossession } from "@qorechain/sdk";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -26,7 +26,7 @@ interface Included {
   rawLog?: string;
 }
 
-const transport = {
+export const transport = {
   async broadcastTx(tx: Uint8Array): Promise<Included> {
     const res = await rest<{ tx_response: { code: number; txhash: string; raw_log: string } }>("/cosmos/tx/v1beta1/txs", {
       method: "POST",
@@ -84,4 +84,40 @@ export async function loadTestAccount() {
   const wallet = createWalletClient({ account: privateKeyToAccount(acc.privateKey as `0x${string}`), chain: qorechainTestnet, transport: http() });
   const pub = createPublicClient({ chain: qorechainTestnet, transport: http() });
   return { qor: acc.cosmos, evm: acc.evm as `0x${string}`, openWindow, wallet, pub };
+}
+
+type Unified = Awaited<ReturnType<typeof deriveUnifiedAccount>>;
+
+/**
+ * Registers an account's ML-DSA-87 key, with proof of possession. Registration
+ * is the one message the chain accepts with only the classical signature.
+ */
+export async function registerPqcKey(acc: Unified): Promise<string> {
+  const a = await rest<{ account: { account_number: string; sequence: string } }>(`/cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
+  const proofOfPossession = signProofOfPossession({ chainId: CHAIN_ID, account: acc.cosmos, keypair: acc.pqc });
+  const res = (await new EthNativeSigner(acc, { signMode: "classical", rest: REST }).signAndBroadcast(transport, {
+    chainId: CHAIN_ID,
+    accountNumber: BigInt(a.account.account_number),
+    sequence: BigInt(a.account.sequence),
+    fee: NATIVE_FEE,
+    messages: [buildRegisterPqcKeyMsg(acc.cosmos, { pqcKeypair: acc.pqc, proofOfPossession })] as never,
+    memo: "cista script: register post-quantum key",
+  })) as Included;
+  if (res.code !== 0) throw new Error(`Registering the post-quantum key failed (code ${res.code}): ${res.rawLog}`);
+  return res.transactionHash;
+}
+
+/** Sends test QOR, hybrid-signed, and waits for it to land. */
+export async function sendQor(from: Unified, to: string, uqor: bigint): Promise<string> {
+  const a = await rest<{ account: { account_number: string; sequence: string } }>(`/cosmos/auth/v1beta1/accounts/${from.cosmos}`);
+  const res = (await new EthNativeSigner(from, { signMode: "hybrid", rest: REST }).signAndBroadcast(transport, {
+    chainId: CHAIN_ID,
+    accountNumber: BigInt(a.account.account_number),
+    sequence: BigInt(a.account.sequence),
+    fee: NATIVE_FEE,
+    messages: [{ typeUrl: "/cosmos.bank.v1beta1.MsgSend", value: { fromAddress: from.cosmos, toAddress: to, amount: [{ denom: "uqor", amount: uqor.toString() }] } }] as never,
+    memo: "cista script: fund the drill's attacker account",
+  })) as Included;
+  if (res.code !== 0) throw new Error(`Sending QOR failed (code ${res.code}): ${res.rawLog}`);
+  return res.transactionHash;
 }
