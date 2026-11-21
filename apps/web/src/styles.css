@@ -288,7 +288,9 @@ table input { padding: 0.35rem 0.45rem; font-size: 0.88rem; }
 .step-n { font-size: 0.78rem; color: var(--ink-3); }
 .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
 .tile.small { padding: 1.3rem 1.4rem; }
-.purposes { background: transparent; border-style: dashed; }
+.purposes { background: transparent; border-style: dashed; grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
+.purposes h3 { margin: 0; }
+.purposes .chips { margin: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.6rem; }
 .chip { font: 400 0.75rem var(--mono); border: 1px solid var(--rule); border-radius: 99px; padding: 0.3rem 0.7rem; color: var(--ink-2); background: var(--card); }
 

@@ -1,7 +1,7 @@
 import deployment from "@cista/contracts/deployments/testnet.json";
 import { short } from "../lib/format";
 import {
-  IconArrow, IconArrowUp, IconAtom, IconBank, IconBriefcase, IconBuilding, IconChain, IconEyeOff,
+  IconArrow, IconArrowUp, IconAtom, IconBank, IconBriefcase, IconBuilding, IconCalendar, IconChain, IconEyeOff,
   IconKey, IconPay, IconPerson, IconProve, IconRange, IconReceipt, IconSeal, IconSign, IconSliders,
 } from "../icons";
 import { PURPOSES } from "../lib/fields";
@@ -136,9 +136,9 @@ function TwoViews() {
 function Audiences() {
   const who = [
     { icon: <IconBuilding />, title: "Employers", href: "/employer", cta: "Run payroll",
-      points: ["Seal every payslip in your browser", "Sign the run once in QoreX", "Pay the whole team in one transaction"] },
+      points: ["Seal every payslip in your browser", "Sign once, pay the whole team in one transaction", "Next month, start from this run"] },
     { icon: <IconPerson />, title: "Employees", href: "/payslips", cta: "Open my payslips",
-      points: ["Only your key opens your payslip", "Recover it with a 24-word phrase", "Prove one fact, keep the rest sealed"] },
+      points: ["Only your key opens your payslip", "Unlock with a passkey; recover with 24 words", "Prove one fact, even \"earned this year\""] },
     { icon: <IconBank />, title: "Lenders and landlords", href: "/verify", cta: "Check a proof",
       points: ["Paste a proof link, no wallet needed", "Checked against the chain, not a PDF", "See only what you were shown"] },
   ];
@@ -190,6 +190,7 @@ function Proofs() {
     { icon: <IconBriefcase />, title: "Employment", text: "Who employs you, your role and since when. No pay." },
     { icon: <IconArrowUp />, title: "Income above", text: "Net pay is at least an amount you pick. The figure stays sealed." },
     { icon: <IconRange />, title: "Income in a range", text: "Net pay is between two amounts. The figure stays sealed." },
+    { icon: <IconCalendar />, title: "Earned this year", text: "Net pay so far this year is at least an amount you pick." },
     { icon: <IconReceipt />, title: "Exact pay", text: "Net and gross pay, and the payment that reached your account." },
     { icon: <IconSliders />, title: "Custom", text: "Pick exactly which lines of the payslip to show." },
   ];
@@ -267,7 +268,7 @@ function Faq() {
   const qa: [string, string][] = [
     ["Can Cista read my payslip?", "No. Payslips are sealed in the employer's browser to the employee's key. Cista's server stores ciphertext and can't open it."],
     ["What is public on chain?", "The payment: who was paid, how much, and the run's fingerprint in the memo. Names, roles, gross pay, tax and deductions are not on chain."],
-    ["What if I forget my password?", "Your key comes from a 24-word recovery phrase shown once when you make it. The phrase rebuilds the same key and every payslip opens again."],
+    ["What if I forget my password?", "Your key comes from a 24-word recovery phrase shown once when you make it, and checked before you finish. The phrase rebuilds the same key and every payslip opens again. You can also unlock with a passkey (Face ID, a fingerprint) instead of the password."],
     ["Does a lender need a wallet?", "No. They open the proof link on the Check a proof page. Anyone can also ask CistaVerifier on chain to check the run's signature."],
     ["Which tokens does it pay in?", "fUSD, QoreChain's native stablecoin, at $1 per fUSD. The first test run paid in QOR."],
     ["Is this live on mainnet?", "Not yet. Cista runs on QoreChain's testnet; every transaction linked on this page is real and on that testnet."],

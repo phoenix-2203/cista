@@ -55,6 +55,9 @@ export const IconAtom = ({ size = 22 }: P) => (
 export const IconChain = ({ size = 22 }: P) => (
   <svg {...base(size)}><rect x="2.5" y="8.5" width="9" height="7" rx="3.5" /><rect x="12.5" y="8.5" width="9" height="7" rx="3.5" /><path d="M9 12h6" /></svg>
 );
+export const IconCalendar = ({ size = 22 }: P) => (
+  <svg {...base(size)}><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /><path d="m9 15 2 2 4-4" /></svg>
+);
 export const IconArrow = ({ size = 16 }: P) => (
   <svg {...base(size)}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 );
