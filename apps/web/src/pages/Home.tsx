@@ -1,23 +1,40 @@
+import deployment from "@cista/contracts/deployments/testnet.json";
+import { short } from "../components";
+import { EXPLORER_TX } from "../lib/chain";
+import { EXPLORER_ADDRESS, VERIFIER } from "../lib/onchain";
 import { Link } from "../lib/router";
+import { Seal } from "../Logo";
+
+/** The fUSD pay run listed under "Proven on testnet" in the README. */
+const FUSD_RUN_TX = "A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5";
+
 
 export function Home() {
   return (
     <>
       <section className="hero">
         <div>
-          <p className="pill seal" style={{ marginBottom: "1rem" }}>QoreChain testnet · Encrypted Apps</p>
-          <h1>Everyone gets paid. Only you see your payslip.</h1>
+          <p className="badge"><i />Live on QoreChain testnet · Encrypted Apps</p>
+          <h1>Everyone gets paid. Only you can <em>read</em> your payslip.</h1>
           <p className="lede">
             Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 before they leave the employer's browser, one hybrid-signed
             transaction pays the whole team in fUSD, and anyone can prove their pay to a lender without handing over the payslip.
           </p>
           <div className="row">
-            <Link className="btn" href="/employer">Run payroll</Link>
+            <Link className="btn" href="/employer">Run payroll →</Link>
             <Link className="btn ghost" href="/payslips">My payslips</Link>
-            <Link className="btn ghost" href="/verify">Check a proof of pay</Link>
+            <Link className="btn ghost" href="/verify">Check a proof</Link>
           </div>
+          <p className="ticks"><span>✓ ML-KEM-1024 sealed</span><span>✓ ML-DSA-87 signed</span><span>✓ Checked on chain</span></p>
         </div>
-        <SlipArt />
+        <SealedSlip />
+      </section>
+
+      <section className="facts" aria-label="Proven on testnet">
+        <a href={EXPLORER_ADDRESS + VERIFIER} target="_blank" rel="noreferrer"><b className="addr">{short(VERIFIER)}</b>CistaVerifier contract</a>
+        <span><b>{deployment.verifyRunGas.toLocaleString("en-US")}</b>gas to check a pay run on chain</span>
+        <a href="https://github.com/phoenix-2203/cista/blob/main/docs/qday-drill.md" target="_blank" rel="noreferrer"><b>8 / 8</b>Q-Day attacks refused</a>
+        <a href={EXPLORER_TX + FUSD_RUN_TX} target="_blank" rel="noreferrer"><b>#10,502,279</b>block of a real fUSD pay run</a>
       </section>
 
       <section className="grid" style={{ marginBottom: "2rem" }}>
@@ -51,25 +68,21 @@ export function Home() {
   );
 }
 
-function SlipArt() {
+/** An example payslip: every line sealed except the one fact being proven. */
+function SealedSlip() {
+  const rows: [string, number][] = [["Gross pay", 92], ["Tax", 70], ["Pension", 58], ["Net pay", 84]];
   return (
-    <svg viewBox="0 0 360 300" role="img" aria-label="A sealed payslip" style={{ width: "100%", maxWidth: 420, justifySelf: "center" }}>
-      <rect x="40" y="20" width="250" height="250" rx="10" fill="#fff" stroke="#ddd4c0" />
-      <rect x="60" y="44" width="120" height="12" rx="3" fill="#14213d" />
-      <rect x="60" y="64" width="80" height="8" rx="3" fill="#ddd4c0" />
-      <line x1="60" y1="88" x2="270" y2="88" stroke="#14213d" strokeWidth="2" />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <g key={i}>
-          <rect x="60" y={106 + i * 24} width={90 + (i % 3) * 20} height="8" rx="3" fill="#efe9db" />
-          <rect x="210" y={106 + i * 24} width="60" height="8" rx="3" fill="#efe9db" />
-        </g>
+    <figure className="sealed-slip" aria-label="An example payslip with every line sealed except one proven fact">
+      <header><span>Example payslip · Nov 2026</span><span>fUSD</span></header>
+      <div className="line"><span>Employee</span><span className="mono">qor1qef7…8lwh</span></div>
+      {rows.map(([k, w]) => (
+        <div className="line" key={k}><span>{k}</span><span className="redacted" style={{ width: w }} /></div>
       ))}
-      <rect x="60" y="232" width="210" height="16" rx="4" fill="#f3e3b8" />
-      <circle cx="275" cy="225" r="46" fill="#b8892b" opacity="0.95" />
-      <circle cx="275" cy="225" r="38" fill="none" stroke="#f3e3b8" strokeDasharray="3 4" />
-      <path d="M262 222v-6a13 13 0 0 1 26 0v6" fill="none" stroke="#fff" strokeWidth="4" />
-      <rect x="257" y="221" width="36" height="26" rx="4" fill="#fff" />
-      <circle cx="275" cy="233" r="4" fill="#b8892b" />
-    </svg>
+      <div className="proven">
+        <Seal size={28} />
+        <div><strong>Net pay at least $2,500</strong><small>Proven · every other line stays sealed</small></div>
+        <span className="tag">Verified</span>
+      </div>
+    </figure>
   );
 }
