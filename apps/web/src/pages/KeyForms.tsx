@@ -1,5 +1,7 @@
 /** The forms around the sealing key: unlock, show the recovery phrase, recover with it. */
 import { useState } from "react";
+import { estimate, MIN_SCORE } from "../lib/strength";
+import { PasswordMeter } from "../PasswordMeter";
 import { RECOVERY_WORDS, type Vault } from "@phoenix-2203/cista";
 import { Notice, useAction } from "../components";
 import { downloadVault, recoverKeys, unlockKeys } from "../lib/keys";
@@ -94,6 +96,7 @@ export function RecoverForm({ address, onDone, onCancel, onStartOver }: { addres
         onSubmit={(e) => {
           e.preventDefault();
           if (pw !== pw2) return setError("the two passwords differ");
+          if (estimate(pw, [address, address.slice(0, 12)]).score < MIN_SCORE) return setError("choose a stronger password");
           void run(async () => {
             const r = await recoverKeys(address, phrase, pw);
             onDone(r.matchesCard);
@@ -108,6 +111,7 @@ export function RecoverForm({ address, onDone, onCancel, onStartOver }: { addres
           <div className="field">
             <label htmlFor="npw1">New password <span className="hint">at least 10 characters</span></label>
             <input id="npw1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <PasswordMeter password={pw} avoid={[address, address.slice(0, 12)]} />
           </div>
           <div className="field">
             <label htmlFor="npw2">Same password again</label>
@@ -115,7 +119,7 @@ export function RecoverForm({ address, onDone, onCancel, onStartOver }: { addres
           </div>
         </div>
         <div className="row">
-          <button className="btn" disabled={busy || !phrase.trim() || pw.length < 10}>{busy ? "Rebuilding your key…" : "Recover my key"}</button>
+          <button className="btn" disabled={busy || !phrase.trim() || pw.length < 10 || estimate(pw, [address, address.slice(0, 12)]).score < MIN_SCORE}>{busy ? "Rebuilding your key…" : "Recover my key"}</button>
           <button type="button" className="btn ghost small" onClick={onCancel}>Back</button>
         </div>
       </form>

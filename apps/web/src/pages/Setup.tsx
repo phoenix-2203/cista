@@ -4,6 +4,8 @@
  * the key card.
  */
 import { useEffect, useState } from "react";
+import { estimate, MIN_SCORE } from "../lib/strength";
+import { PasswordMeter } from "../PasswordMeter";
 import type { Vault } from "@phoenix-2203/cista";
 import { Notice, SignInCard, useAction } from "../components";
 import { createKeys, lockKeys, restoreKeys, savedVault, unlockedKeys } from "../lib/keys";
@@ -41,7 +43,7 @@ function KeyDesk({ address }: { address: string }) {
     const on = () => refresh();
     window.addEventListener("cista:keys", on);
     return () => window.removeEventListener("cista:keys", on);
-  }, [address]);
+  }, [address, address.slice(0, 12)]);
 
   const keys = unlockedKeys(address);
 
@@ -104,6 +106,7 @@ function MakeKey({ address, replacing, onMade, onCancel }: { address: string; re
         onSubmit={(e) => {
           e.preventDefault();
           if (pw !== pw2) return setError("the two passwords differ");
+          if (estimate(pw, [address, address.slice(0, 12)]).score < MIN_SCORE) return setError("choose a stronger password");
           void run(async () => onMade(await createKeys(address, pw)));
         }}
       >
@@ -111,6 +114,7 @@ function MakeKey({ address, replacing, onMade, onCancel }: { address: string; re
           <div className="field">
             <label htmlFor="pw1">Password <span className="hint">at least 10 characters</span></label>
             <input id="pw1" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <PasswordMeter password={pw} avoid={[address, address.slice(0, 12)]} />
           </div>
           <div className="field">
             <label htmlFor="pw2">Same password again</label>
@@ -118,7 +122,7 @@ function MakeKey({ address, replacing, onMade, onCancel }: { address: string; re
           </div>
         </div>
         <div className="row">
-          <button className="btn" disabled={busy || pw.length < 10}>{busy ? "Making the key…" : replacing ? "Make a new key" : "Make my key"}</button>
+          <button className="btn" disabled={busy || pw.length < 10 || estimate(pw, [address, address.slice(0, 12)]).score < MIN_SCORE}>{busy ? "Making the key…" : replacing ? "Make a new key" : "Make my key"}</button>
           {onCancel && <button type="button" className="btn ghost small" onClick={onCancel}>Cancel</button>}
         </div>
       </form>
