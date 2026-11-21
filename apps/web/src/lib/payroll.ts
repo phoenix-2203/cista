@@ -110,6 +110,32 @@ export function rowToPayslip(row: TeamRow, s: RunSettings): Payslip {
   };
 }
 
+/** Cents back to the dollars a person would type: 300050n → "3000.50", 300000n → "3000". */
+export function centsToDollars(cents: bigint): string {
+  if (cents === 0n) return "";
+  const whole = cents / 100n;
+  const rest = cents % 100n;
+  return rest === 0n ? whole.toString() : `${whole}.${rest.toString().padStart(2, "0")}`;
+}
+
+/** A payslip back to a team row, to start a new run from an earlier one. */
+export function payslipToRow(slip: Payslip): TeamRow {
+  const amount = (list: Payslip["earnings"], code: string) => centsToDollars(list.find((l) => l.code === code)?.amount ?? 0n);
+  return {
+    address: slip.employee.address,
+    name: slip.employee.name,
+    staffId: slip.employee.staffId,
+    role: slip.employee.role,
+    employedSince: slip.employee.employedSince,
+    basic: amount(slip.earnings, "basic"),
+    allowances: amount(slip.earnings, "allowances"),
+    bonus: amount(slip.earnings, "bonus"),
+    tax: amount(slip.deductions, "tax"),
+    pension: amount(slip.deductions, "pension"),
+    otherDeductions: amount(slip.deductions, "other"),
+  };
+}
+
 const CSV_COLUMNS: (keyof TeamRow)[] = ["address", "name", "staffId", "role", "employedSince", "basic", "allowances", "bonus", "tax", "pension", "otherDeductions"];
 
 export function teamToCsv(rows: TeamRow[]): string {
