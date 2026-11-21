@@ -130,6 +130,7 @@ require(employee == msg.sender, "not your payslip");
 | A payslip sealed to a replaced key, re-sealed by the employer and opened again by the employee | Re-seal on the fUSD run |
 | `CistaVerifier` deployed (a 1-transaction EVM window opened with a hybrid signature, then the deployment) | [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8), tx `0xbbde1593…a49b2`, block 10,503,663 |
 | The chain's PQC precompiles verified the employer's real QoreX signature on the fUSD run inside `CistaVerifier`; the same run with the total raised by one unit was refused (`BadSignature`) | `pnpm --filter @cista/contracts deploy:testnet`, 333,239 gas |
+| **A team of three paid in one transaction**: one hybrid-signed `MsgMultiSend` with three outputs, checked against the signed run; each employee opened only their own payslip (with pay frequency and the year so far); `CistaVerifier` accepted an "earned at least $25,000 this year" proof for each. 16 of 16 checks | [`B3D87ED1…D85F7B`](https://explore.qore.network/tx/B3D87ED1523C4764B66B7B8293142E187FE3DF5519BEAE9A28DD02589BD85F7B), block 10,510,091, run root `c3fc9402…782e`; [docs/team-run.md](docs/team-run.md) |
 | Q-Day drill: an attacker with only a stolen classical key tried 8 attacks on the chain, the server, a forged proof and the contract; all 8 were refused | [docs/qday-drill.md](docs/qday-drill.md) |
 
 The first run paid in QOR; pay runs now pay in fUSD.
@@ -208,7 +209,7 @@ flowchart TB
 | `apps/web/src/lib/fields.ts`, `onchain.ts` | Proof types and plain-language claims; the "Check on chain" call |
 | `apps/web/src/pages/` | Home, My key, Run payroll, My payslips (with the proof maker), Check a proof |
 | `deploy/` | Caddy site, systemd unit and a one-command VPS setup |
-| [`audit.md`](audit.md), [`docs/qday-drill.md`](docs/qday-drill.md) | The security audit and the live drill results |
+| [`audit.md`](audit.md), [`docs/qday-drill.md`](docs/qday-drill.md), [`docs/team-run.md`](docs/team-run.md) | The security audit, the live drill results and the live team pay run |
 
 ## Run it
 
