@@ -183,7 +183,9 @@ table input { padding: 0.35rem 0.45rem; font-size: 0.88rem; }
 }
 @media (max-width: 560px) {
   .topbar { flex-wrap: wrap; gap: 0.8rem 1.2rem; }
-  .topbar .nav { order: 3; width: 100%; }
+  .topbar .nav { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; gap: 1.1rem; scrollbar-width: none; }
+  .topbar .nav a { white-space: nowrap; }
+  .facts b.addr { font-size: 0.85rem; white-space: nowrap; }
 }
 
 /* Recovery phrase */
