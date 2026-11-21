@@ -174,3 +174,10 @@ table input { padding: 0.35rem 0.45rem; font-size: 0.88rem; }
 .preview li { margin: 0.2rem 0; }
 .claims { font: 1.3rem var(--serif); padding-left: 1.2rem; margin: 0.4rem 0 0; }
 .claims li { margin: 0.3rem 0; }
+
+/* Theme toggle */
+.theme-toggle { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--card); }
+.theme-toggle button { width: 30px; height: 26px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.theme-toggle button[aria-pressed="true"] { background: var(--paper-2); color: var(--ink); }
+.theme-toggle button:focus-visible { outline: 2px solid var(--seal); outline-offset: 1px; }
+.theme-toggle svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }

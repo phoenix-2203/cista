@@ -1,6 +1,7 @@
 import { short } from "./components";
 import { signOut } from "./lib/api";
 import { Link, usePath } from "./lib/router";
+import { ThemeToggle } from "./ThemeToggle";
 import { useSession } from "./lib/useSession";
 import { Employer } from "./pages/Employer";
 import { Home } from "./pages/Home";
@@ -45,6 +46,7 @@ export function App() {
           ))}
         </nav>
         <span className="spacer" />
+        <ThemeToggle />
         {session && (
           <span className="row small">
             <span className="mono" title={session.address}>{short(session.address)}</span>
