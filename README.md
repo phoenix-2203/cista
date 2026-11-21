@@ -16,12 +16,12 @@ Work in progress for QoreChain's [Build Before Q-Day](https://build.qorechain.io
 
 | Part | State |
 | --- | --- |
-| Core library (`packages/core`) | Built: payslip model, field commitments, pay-run fingerprint, sealing, signatures, bank messages, key vault, payment check, proof of pay. 147 tests |
-| Server (`apps/server`) | Built: sign-in, recipient cards, pay runs, payments, employee inbox. 24 tests |
-| Web app (`apps/web`) | Built: key setup, employer pay run, employee payslips and proofs, lender check page. 8 tests, plus a browser check of the verify page |
-| Live on testnet | Live at https://cista.duckdns.org; first real pay run and proof of pay done (see below) |
-| `CistaRegistry` contract | Planned: checks the employer's ML-DSA-87 signature on chain |
-| Q-Day attack drill (`audit.md`) | Planned |
+| Core library (`packages/core`) | Built: payslip model, field commitments, pay-run fingerprint, sealing, signatures, bank messages, recovery phrase, key vault, payment check, proof of pay. 154 tests |
+| Server (`apps/server`) | Built: sign-in, key cards, pay runs, re-seal, payments, employee inbox. 28 tests |
+| Web app (`apps/web`) | Built: keys with recovery phrase, employer pay run in fUSD and re-seal, employee payslips, standard proof types, lender check page. 13 tests, plus a browser check of the proof page |
+| `CistaVerifier` contract (`packages/contracts`) | Deployed on testnet; checks a pay run's ML-DSA-87 signature and payslip fields on chain. 15 tests on a local EVM |
+| Security | [audit.md](audit.md): threat model, live Q-Day drill (8 of 8 attacks blocked), findings, limitations |
+| Live | https://cista.duckdns.org |
 
 ## Proven on testnet
 
@@ -29,6 +29,9 @@ Work in progress for QoreChain's [Build Before Q-Day](https://build.qorechain.io
 | --- | --- |
 | A real pay run paid by QoreX with one `MsgMultiSend`, hybrid-signed (the chain reports `pqc_hybrid_verify … status=verified` for the employer), carrying the run root `aa1868d9…4ce1` in its memo | [`F205402C…7A6FDF`](https://explore.qore.network/tx/F205402C3F9EABF2E393F5D83B71EE1E016791516F3F3B8356D7E15E787A6FDF), block 10,442,970, 20 Nov 2026 |
 | A pay run paid in **fUSD** by QoreX with one `MsgMultiSend` of the native denom `erc20:0x9714…63CA` (10 fUSD), hybrid-signed by the employer, run root `47f10efc…649f` in its memo | [`A3978B6A…780DA5`](https://explore.qore.network/tx/A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5), block 10,502,279, 21 Nov 2026 |
+| `CistaVerifier` deployed (a 1-transaction EVM window opened with a hybrid signature, then the deployment) | [`0xF269…19d8`](https://explore.qore.network/address/0xF26924d19029d1F1A253a3e079b16fD68B8519d8), tx `0xbbde1593…a49b2`, block 10,503,663 |
+| The chain's PQC precompiles verified the employer's real QoreX signature on that fUSD run inside `CistaVerifier`; the same run with the total raised by one unit was refused (`BadSignature`) | `pnpm --filter @cista/contracts deploy:testnet`, 333,239 gas |
+| Q-Day drill: an attacker with only a stolen classical key tried 8 attacks on the chain, the server, a forged proof and the contract; all 8 were refused | [docs/qday-drill.md](docs/qday-drill.md) |
 | The employee opened the sealed payslip in the browser, made a proof of pay (employer, period, net pay) for "Test Bank", and the check page passed all five checks with no wallet | https://cista.duckdns.org/verify |
 
 The first run paid in QOR; pay runs now pay in fUSD (see "Money" below). A proof of employment from the fUSD run ("Employed by … since …, and on the payroll for 2026-11", made for a loan) also passed every check.
@@ -58,6 +61,18 @@ slip roots     ─────────────────────�
 Every signature is checked against the key registered on chain, never a key the signature brings along. A signature with only the classical (secp256k1) part is refused: that is the part a quantum computer could forge.
 
 **What stays public:** payment amounts and addresses, like every transfer on chain, and the fact that an address received a payslip. What stays sealed: who the person is, their gross pay, tax, deductions, role and personal details.
+
+## On-chain proof of income
+
+[`CistaVerifier`](packages/contracts/contracts/CistaVerifier.sol) lets another contract (a lending pool, a rental deposit, a credit line) check a Cista proof itself, without trusting Cista, its server or the person submitting it:
+
+```solidity
+(address employer, address employee) = verifier.verifyFields(run, employerPqSignature, slipIndex, slipSiblings, fields);
+require(employee == msg.sender, "not your payslip");
+// then read the revealed fields, e.g. "net.atLeast.250000" == "yes"
+```
+
+`verifyFields` rebuilds the text the employer signed, gets the employer's ML-DSA-87 key from the PQC Key Status precompile (`0x…0a02`), checks the signature with the PQC Verify precompile (`0x…0a01`), then checks each field's salted commitment up the two Merkle trees to the signed run root. It holds nothing and has no owner. A check costs about 330,000 gas, almost all of it the ML-DSA-87 verification. The same construction as the TypeScript library, kept in step by shared test values.
 
 ## Run it
 
@@ -95,6 +110,11 @@ Open source libraries and QoreChain kits Cista uses:
 | [Hono](https://github.com/honojs/hono) and [@hono/node-server](https://github.com/honojs/node-server) | MIT | The server's HTTP API |
 | [tsx](https://github.com/privatenumber/tsx) | MIT | Running the TypeScript server |
 | [React](https://github.com/facebook/react) and [Vite](https://github.com/vitejs/vite) | MIT | The web app |
+| [@scure/bip39](https://github.com/paulmillr/scure-bip39) | MIT | The 24-word recovery phrase |
+| [solc](https://github.com/ethereum/solc-js) | MIT (compiler only, not shipped) | Compiling `CistaVerifier` |
+| [@ethereumjs/evm](https://github.com/ethereumjs/ethereumjs-monorepo) | MPL-2.0 (tests only) | Running the contract tests on a local EVM |
+| [viem](https://github.com/wevm/viem) | MIT | Contract calls in the scripts and tests |
+| [@qorechain/sdk](https://www.npmjs.com/package/@qorechain/sdk) and [@qorechain/evm](https://www.npmjs.com/package/@qorechain/evm) | Apache-2.0 | The testnet scripts: hybrid-signed EVM windows, the deployment, the Q-Day drill |
 | [Vitest](https://github.com/vitest-dev/vitest) and [TypeScript](https://github.com/microsoft/TypeScript) | MIT, Apache-2.0 | Tests and type checking |
 
 The server's store uses `node:sqlite`, built into Node.js.
