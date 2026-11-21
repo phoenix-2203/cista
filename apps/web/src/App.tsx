@@ -1,6 +1,7 @@
 import { short } from "./components";
 import { signOut } from "./lib/api";
 import { Link, usePath } from "./lib/router";
+import { Wordmark } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSession } from "./lib/useSession";
 import { Employer } from "./pages/Employer";
@@ -32,13 +33,7 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <Link className="brand" href="/">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="#14213d" />
-            <path d="M8 12h16v12a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2z" fill="none" stroke="#e9c46a" strokeWidth="2" />
-            <path d="M7 9h18v3H7z" fill="#e9c46a" />
-            <path d="M16 15v6" stroke="#e9c46a" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          Cista
+          <Wordmark height={34} />
         </Link>
         <nav className="nav">
           {NAV.map(([href, label]) => (
