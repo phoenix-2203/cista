@@ -7,5 +7,7 @@
   "block": 10503663,
   "deployer": "qor1w3yt7jnev05p4d8e8vgczkdfrd72mxezajpegh",
   "checkedAgainstRun": "47f10efc4f5681edd55c8ff478490dacee73dbf3d16e57b218d635188f4d649f",
-  "verifyRunGas": 333239
+  "verifyRunGas": 333239,
+  "refusedTampered": "BadSignature",
+  "checkedAt": "2026-11-21"
 }
