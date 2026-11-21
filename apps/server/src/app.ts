@@ -25,6 +25,8 @@ import type { Store } from "./db";
 export interface AppConfig {
   store: Store;
   chain: ServerChain;
+  /** Forwards one eth_call to the CistaVerifier contract; absent = the endpoint is off. */
+  verifierCall?: (data: string) => Promise<{ result?: string; revert?: string; error?: string }>;
   /** The site's host, as it appears in sign-in statements. */
   domain: string;
   chainId: string;
@@ -269,6 +271,22 @@ export function createApp(cfg: AppConfig): Hono<Env> {
       throw new HttpError(409, "this transaction already paid another pay run");
     }
     return c.json({ ok: true, payment: store.getRun(s.run.runRoot)!.payment });
+  });
+
+  // --- On-chain check ---------------------------------------------------------
+  // The browser can't reach the EVM JSON-RPC (strict CSP, no CORS), so the
+  // server forwards exactly one kind of request: a read-only eth_call to the
+  // CistaVerifier contract. The browser builds the call and decodes the answer
+  // itself; the server signs nothing and can't send transactions through this.
+  app.post("/api/verifier/call", bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: "too large" }, 413) }), async (c) => {
+    if (!cfg.verifierCall) throw new HttpError(404, "the on-chain check is not set up on this server");
+    const { data } = await json<{ data?: string }>(c);
+    if (typeof data !== "string" || !/^0x[0-9a-fA-F]{8,}$/.test(data) || data.length > 200_000) throw new HttpError(400, "data must be hex calldata");
+    try {
+      return c.json(await cfg.verifierCall(data));
+    } catch {
+      throw new HttpError(502, "could not reach the chain's EVM endpoint; try again");
+    }
   });
 
   // --- Employee inbox ---------------------------------------------------------

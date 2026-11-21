@@ -6,13 +6,15 @@
  *   CISTA_DOMAIN   default cista.duckdns.org (must match the site's host for sign-in)
  *   CISTA_REST     default https://api-testnet.qore.host
  *   CISTA_CHAIN_ID default qorechain-diana
+ *   CISTA_EVM_RPC  default https://evm-testnet.qore.host
+ *   CISTA_VERIFIER default the CistaVerifier deployed on testnet
  *
  * No keys, mnemonics or secrets are needed: the server signs nothing.
  */
 import { serve } from "@hono/node-server";
 import { TESTNET } from "@phoenix-2203/cista";
 import { createApp } from "./app";
-import { restServerChain } from "./chain";
+import { evmCaller, restServerChain } from "./chain";
 import { Store } from "./db";
 
 const port = Number(process.env.CISTA_PORT ?? 8787);
@@ -22,6 +24,7 @@ const app = createApp({
   chain: restServerChain(process.env.CISTA_REST ?? TESTNET.rest),
   domain: process.env.CISTA_DOMAIN ?? "cista.duckdns.org",
   chainId: process.env.CISTA_CHAIN_ID ?? TESTNET.chainId,
+  verifierCall: evmCaller(process.env.CISTA_EVM_RPC ?? "https://evm-testnet.qore.host", process.env.CISTA_VERIFIER ?? "0xF26924d19029d1F1A253a3e079b16fD68B8519d8"),
 });
 
 serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
