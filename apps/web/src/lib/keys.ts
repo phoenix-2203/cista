@@ -17,6 +17,7 @@ import { lockSeed, needsUpgrade, newRecoveryPhrase, seedFromPhrase, toHex, unloc
 import { assembleRecipientCard, recipientCardFields, recipientCardText, sealKeysFromSeed, type RecipientCard, type SealKeyPair } from "@qorechain/qoreseal";
 import { api, ApiError } from "./api";
 import { CHAIN_ID, signText } from "./qorex";
+import { enrollPasskey, removePasskey, savedPasskey, unlockWithPasskey, type PasskeyWrap } from "./passkey";
 import { forgetSeed, recallSeed, rememberSeed, touchSeed } from "./tabkey";
 
 const vaultKey = (address: string) => `cista.vault.${address}`;
@@ -74,6 +75,7 @@ export function lockKeys(address: string) {
 export async function createKeys(address: string, password: string): Promise<{ phrase: string; vault: Vault }> {
   const phrase = newRecoveryPhrase();
   const seed = seedFromPhrase(phrase);
+  removePasskey(address); // it wrapped the old key
   const vault = await lockSeed(seed, password, address);
   saveVault(vault);
   await useSeed(address, seed);
@@ -86,6 +88,31 @@ export async function unlockKeys(address: string, password: string, vault = save
   // A vault from before Argon2id: lock it again with Argon2id under the same password.
   saveVault(needsUpgrade(vault) ? await lockSeed(seed, password, address) : vault);
   return useSeed(address, seed);
+}
+
+/** Unlock with the passkey set up in this browser (no password). */
+export async function unlockKeysWithPasskey(address: string): Promise<SealKeyPair> {
+  return useSeed(address, await unlockWithPasskey(address));
+}
+
+export const hasPasskey = (address: string): boolean => savedPasskey(address) !== null;
+
+/** Sets up a passkey for the key unlocked in this tab. */
+export async function addPasskey(address: string): Promise<PasskeyWrap> {
+  const seed = await recallSeed(address);
+  if (!seed) throw new Error("unlock your key first");
+  try {
+    const wrap = await enrollPasskey(address, seed);
+    announce();
+    return wrap;
+  } finally {
+    seed.fill(0);
+  }
+}
+
+export function forgetPasskey(address: string): void {
+  removePasskey(address);
+  announce();
 }
 
 /** Forgot the password: the recovery phrase rebuilds the key under a new password. */
@@ -101,6 +128,7 @@ export async function recoverKeys(address: string, phrase: string, newPassword: 
   }
   const vault = await lockSeed(seed, newPassword, address);
   saveVault(vault);
+  removePasskey(address); // set it up again for the recovered key
   await useSeed(address, seed);
   return { keys, matchesCard };
 }
