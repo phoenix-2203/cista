@@ -11,7 +11,7 @@
  * so an employee can prove a band (or a range between two bands) without
  * showing the amount.
  */
-import type { Payslip } from "@phoenix-2203/cista";
+import type { PayFrequency, Payslip } from "@phoenix-2203/cista";
 
 export const FUSD = {
   denom: "erc20:0x97143B771D34ddb9130b807b135Ae675A5a963CA",
@@ -21,6 +21,22 @@ export const FUSD = {
 
 /** Monthly net-pay bands, in dollars. */
 export const PAY_BANDS = [250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000, 7000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000];
+
+/** Year-to-date net-pay bands, in dollars: what "earned at least $X this year" can prove. */
+export const YTD_BANDS = [5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 60000, 75000, 100000, 125000, 150000, 200000, 250000, 300000, 500000];
+
+export const FREQUENCIES: { value: PayFrequency; label: string }[] = [
+  { value: "monthly", label: "Monthly" },
+  { value: "semimonthly", label: "Twice a month" },
+  { value: "biweekly", label: "Every two weeks" },
+  { value: "weekly", label: "Weekly" },
+];
+
+/** Earlier pay this calendar year for one person, in cents. */
+export interface PriorYear {
+  gross: bigint;
+  deductions: bigint;
+}
 
 export interface TeamRow {
   address: string;
@@ -35,6 +51,8 @@ export interface TeamRow {
   tax: string;
   pension: string;
   otherDeductions: string;
+  /** Paid by the employer on top of gross pay; not taken from the employee. */
+  employerPension: string;
 }
 
 export interface RunSettings {
@@ -42,6 +60,7 @@ export interface RunSettings {
   employerName: string;
   period: string;
   payDate: string;
+  payFrequency: PayFrequency;
 }
 
 export const emptyRow = (): TeamRow => ({
@@ -56,6 +75,7 @@ export const emptyRow = (): TeamRow => ({
   tax: "",
   pension: "",
   otherDeductions: "",
+  employerPension: "",
 });
 
 /** "3,000.50" dollars to cents. */
@@ -74,9 +94,10 @@ export function lines(row: TeamRow) {
   const tax = toCents(row.tax);
   const pension = toCents(row.pension);
   const other = toCents(row.otherDeductions);
+  const employerPension = toCents(row.employerPension ?? "");
   const gross = basic + allowances + bonus;
   const net = gross - tax - pension - other;
-  return { basic, allowances, bonus, tax, pension, other, gross, net };
+  return { basic, allowances, bonus, tax, pension, other, employerPension, gross, net };
 }
 
 /** Net pay in cents to fUSD base units (6 decimals): $1 = 1 fUSD. */
@@ -84,7 +105,12 @@ export function centsToFusd(cents: bigint): bigint {
   return cents * 10n ** BigInt(FUSD.decimals - 2);
 }
 
-export function rowToPayslip(row: TeamRow, s: RunSettings): Payslip {
+/**
+ * One row to a payslip. `prior` is this person's earlier pay this calendar
+ * year (from the employer's own copies); with it the payslip carries
+ * year-to-date totals and bands.
+ */
+export function rowToPayslip(row: TeamRow, s: RunSettings, prior?: PriorYear): Payslip {
   const l = lines(row);
   if (l.basic <= 0n) throw new Error(`${row.name || row.address || "a row"}: add a basic salary`);
   if (l.net <= 0n) throw new Error(`${row.name || row.address}: deductions are larger than pay`);
@@ -104,9 +130,15 @@ export function rowToPayslip(row: TeamRow, s: RunSettings): Payslip {
     currency: "USD",
     earnings: [...line("basic", "Basic salary", l.basic), ...line("allowances", "Allowances", l.allowances), ...line("bonus", "Bonus", l.bonus)],
     deductions: [...line("tax", "Income tax", l.tax), ...line("pension", "Pension", l.pension), ...line("other", "Other deductions", l.other)],
-    employerContributions: [],
+    employerContributions: line("pension", "Employer pension contribution", l.employerPension),
     payout: { address: row.address.trim(), denom: FUSD.denom, amount: centsToFusd(l.net) },
     thresholds: PAY_BANDS.map((d) => BigInt(d) * 100n),
+    payFrequency: s.payFrequency,
+    yearToDate: {
+      gross: (prior?.gross ?? 0n) + l.gross,
+      deductions: (prior?.deductions ?? 0n) + l.tax + l.pension + l.other,
+      thresholds: YTD_BANDS.map((d) => BigInt(d) * 100n),
+    },
   };
 }
 
@@ -133,10 +165,11 @@ export function payslipToRow(slip: Payslip): TeamRow {
     tax: amount(slip.deductions, "tax"),
     pension: amount(slip.deductions, "pension"),
     otherDeductions: amount(slip.deductions, "other"),
+    employerPension: amount(slip.employerContributions, "pension"),
   };
 }
 
-const CSV_COLUMNS: (keyof TeamRow)[] = ["address", "name", "staffId", "role", "employedSince", "basic", "allowances", "bonus", "tax", "pension", "otherDeductions"];
+const CSV_COLUMNS: (keyof TeamRow)[] = ["address", "name", "staffId", "role", "employedSince", "basic", "allowances", "bonus", "tax", "pension", "otherDeductions", "employerPension"];
 
 export function teamToCsv(rows: TeamRow[]): string {
   const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);

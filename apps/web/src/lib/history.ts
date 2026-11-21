@@ -4,9 +4,10 @@
  * again: to start a new run from an earlier one, or to add up the year so far.
  * Nothing is kept in the clear anywhere; this runs in the employer's browser.
  */
-import { fromHex, openPayslip, type Payslip, type SignedRun } from "@phoenix-2203/cista";
+import { fromHex, grossPay, openPayslip, totalDeductions, type Payslip, type SignedRun } from "@phoenix-2203/cista";
 import { envelopeFromText, type SealKeyPair } from "@qorechain/qoreseal";
-import { api } from "./api";
+import { api, type StoredRun } from "./api";
+import type { PriorYear } from "./payroll";
 
 /** Opens every payslip of a run with the employer's key, in run order. */
 export async function openEmployerCopies(run: SignedRun, keys: SealKeyPair): Promise<Payslip[]> {
@@ -36,4 +37,21 @@ export function nextPayDate(payDate: string): string {
   const nm = m === 12 ? 1 : m + 1;
   const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
   return `${ny}-${String(nm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+/**
+ * Each person's earlier pay this calendar year, from the employer's own
+ * copies of paid runs before `period` in the same year. Unpaid runs don't count.
+ */
+export async function priorYear(runs: StoredRun[], period: string, keys: SealKeyPair): Promise<{ totals: Map<string, PriorYear>; runs: number }> {
+  const year = period.slice(0, 4);
+  const earlier = runs.filter((r) => r.payment && r.run.period.startsWith(year) && r.run.period < period);
+  const totals = new Map<string, PriorYear>();
+  for (const r of earlier) {
+    for (const slip of await openEmployerCopies(r.run, keys)) {
+      const t = totals.get(slip.employee.address) ?? { gross: 0n, deductions: 0n };
+      totals.set(slip.employee.address, { gross: t.gross + grossPay(slip), deductions: t.deductions + totalDeductions(slip) });
+    }
+  }
+  return { totals, runs: earlier.length };
 }

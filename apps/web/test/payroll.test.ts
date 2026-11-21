@@ -1,6 +1,6 @@
 import { validatePayslip } from "@phoenix-2203/cista";
 import { describe, expect, it } from "vitest";
-import { centsToFusd, FUSD, lines, PAY_BANDS, rowToPayslip, teamFromCsv, teamToCsv, toCents, type TeamRow } from "../src/lib/payroll";
+import { centsToFusd, FUSD, lines, PAY_BANDS, rowToPayslip, teamFromCsv, teamToCsv, toCents, YTD_BANDS, type TeamRow } from "../src/lib/payroll";
 
 const row: TeamRow = {
   address: "qor1k3lpzfetuf09e7d85rsc8mrsxeg53mzuz7nqj3",
@@ -14,8 +14,9 @@ const row: TeamRow = {
   tax: "420",
   pension: "240",
   otherDeductions: "",
+  employerPension: "",
 };
-const settings = { employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh", employerName: "Acme Logistics Ltd", period: "2026-11", payDate: "2026-11-28" };
+const settings = { employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh", employerName: "Acme Logistics Ltd", period: "2026-11", payDate: "2026-11-28", payFrequency: "monthly" as const };
 
 describe("payroll", () => {
   it("reads dollar amounts into cents", () => {
@@ -44,6 +45,19 @@ describe("payroll", () => {
     expect(slip.payout).toEqual({ address: row.address, denom: FUSD.denom, amount: 2_790_500_000n });
     expect(slip.thresholds).toHaveLength(PAY_BANDS.length);
     expect(slip.earnings.map((e) => e.code)).toEqual(["basic", "allowances"]);
+  });
+
+  it("carries pay frequency, the employer's pension and the year so far", () => {
+    const first = rowToPayslip({ ...row, employerPension: "300" }, settings);
+    expect(first.payFrequency).toBe("monthly");
+    expect(first.employerContributions).toEqual([{ code: "pension", label: "Employer pension contribution", amount: 30_000n }]);
+    expect(first.yearToDate?.gross).toBe(345_050n);
+    expect(first.yearToDate?.deductions).toBe(66_000n);
+    expect(first.yearToDate?.thresholds).toHaveLength(YTD_BANDS.length);
+    const later = rowToPayslip(row, settings, { gross: 1_000_000n, deductions: 200_000n });
+    expect(later.yearToDate?.gross).toBe(1_345_050n);
+    expect(later.yearToDate?.deductions).toBe(266_000n);
+    expect(() => validatePayslip(later)).not.toThrow();
   });
 
   it("refuses a row with no basic salary, or deductions above pay", () => {

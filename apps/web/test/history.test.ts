@@ -14,8 +14,9 @@ const row: TeamRow = {
   tax: "420",
   pension: "240",
   otherDeductions: "",
+  employerPension: "",
 };
-const settings = { employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh", employerName: "Acme Logistics Ltd", period: "2026-11", payDate: "2026-11-28" };
+const settings = { employer: "qor1lhn3955g79jfmuzvqmcz3msyr57qx78eyvlanh", employerName: "Acme Logistics Ltd", period: "2026-11", payDate: "2026-11-28", payFrequency: "monthly" as const };
 
 describe("starting from an earlier run", () => {
   it("turns a payslip back into the row it came from", () => {
