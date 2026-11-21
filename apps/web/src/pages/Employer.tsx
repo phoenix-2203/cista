@@ -1,13 +1,16 @@
 /** The employer's page: build the team table, then run payroll in five steps. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { statementOf, toHex, type PayRun, type SignedRun } from "@phoenix-2203/cista";
 import { money, NeedsKey, Notice, payout, qor, short, useAction } from "../components";
+import { api, type StoredRun } from "../lib/api";
 import { balanceOf, EXPLORER_TX } from "../lib/chain";
+import { nextPayDate, nextPeriod, openEmployerCopies } from "../lib/history";
 import { unlockedKeys } from "../lib/keys";
 import {
   emptyRow,
   FUSD,
   lines,
+  payslipToRow,
   rowToPayslip,
   teamFromCsv,
   teamToCsv,
@@ -173,6 +176,20 @@ function PayrollDesk({ employer }: { employer: string }) {
     a.click();
   };
 
+  // Start from an earlier run: open the employer's own copies and copy the team, a month on.
+  const startFrom = (r: StoredRun) =>
+    run(async () => {
+      const keys = unlockedKeys(employer);
+      if (!keys) throw new Error("unlock your Cista key first, so it can open your copy of that run");
+      const slips = await openEmployerCopies(r.run, keys);
+      if (slips.length === 0) throw new Error("that run has no payslips stored");
+      setRows(slips.map(payslipToRow));
+      const payDate = slips[0]!.payDate;
+      setSettings((s) => ({ ...s, employerName: slips[0]!.employer.name, period: nextPeriod(r.run.period), payDate: nextPayDate(payDate) }));
+      setProblems(new Map());
+      setStage({ kind: "edit" });
+    });
+
   const total = computed.reduce((s, c) => s + (c.ok ? c.net : 0n), 0n);
 
   return (
@@ -203,6 +220,7 @@ function PayrollDesk({ employer }: { employer: string }) {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>Team</h3>
           <div className="row">
+            {!locked && <StartFrom busy={busy} onPick={startFrom} refresh={refresh} />}
             <label className="btn ghost small" style={{ margin: 0 }}>
               Load CSV
               <input type="file" accept=".csv,text/csv" hidden disabled={locked} onChange={(e) => e.target.files?.[0] && void loadCsv(e.target.files[0])} />
@@ -210,7 +228,10 @@ function PayrollDesk({ employer }: { employer: string }) {
             <button className="btn ghost small" onClick={saveCsv}>Download CSV</button>
           </div>
         </div>
-        <p className="small muted">Monthly amounts in US dollars. The CSV stays on your computer: Cista never stores your team in the clear.</p>
+        <p className="small muted">
+          Monthly amounts in US dollars. Paying the same team again? Start from an earlier run: your key opens your own sealed copy and fills the
+          table in, a month on. Cista never stores your team in the clear. One QoreX account is one company; each team keeps its own runs.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -310,6 +331,29 @@ function PayrollDesk({ employer }: { employer: string }) {
 
       <RunsList key={refresh} />
     </>
+  );
+}
+
+/** Pick an earlier run to copy the team from (each team keeps its own runs). */
+function StartFrom({ busy, onPick, refresh }: { busy: boolean; onPick: (r: StoredRun) => void; refresh: number }) {
+  const [runs, setRuns] = useState<StoredRun[]>([]);
+  const [picked, setPicked] = useState("");
+  useEffect(() => {
+    api.myRuns().then(setRuns, () => setRuns([]));
+  }, [refresh]);
+  if (runs.length === 0) return null;
+  const chosen = runs.find((r) => r.run.runRoot === picked) ?? runs[0]!;
+  return (
+    <div className="row start-from">
+      <select aria-label="Earlier pay run" value={chosen.run.runRoot} onChange={(e) => setPicked(e.target.value)}>
+        {runs.map((r) => (
+          <option key={r.run.runRoot} value={r.run.runRoot}>
+            {r.run.period} · {r.run.count} {r.run.count === 1 ? "person" : "people"} · {payout(r.run.totalPayout, r.run.denom)}{r.payment ? "" : " · not paid"}
+          </option>
+        ))}
+      </select>
+      <button className="btn ghost small" disabled={busy} onClick={() => onPick(chosen)}>Start from this run</button>
+    </div>
   );
 }
 

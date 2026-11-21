@@ -384,3 +384,4 @@ body, .card, .tile, .view, .panel, .topbar { transition: background-color 0.35s 
   .compare th, .compare td { padding: 0.75rem 0.6rem; font-size: 0.82rem; }
 }
 .footer .wordmark { color: var(--ink); }
+.start-from select { width: auto; max-width: 22rem; padding: 0.35rem 0.6rem; font-size: 0.85rem; }
