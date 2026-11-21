@@ -8,7 +8,8 @@ import { estimate, MIN_SCORE } from "../lib/strength";
 import { PasswordMeter } from "../PasswordMeter";
 import type { Vault } from "@phoenix-2203/cista";
 import { Notice, SignInCard, useAction } from "../components";
-import { createKeys, lockKeys, restoreKeys, savedVault, unlockedKeys } from "../lib/keys";
+import { addPasskey, createKeys, forgetPasskey, hasPasskey, lockKeys, restoreKeys, savedVault, unlockedKeys } from "../lib/keys";
+import { passkeysAvailable } from "../lib/passkey";
 import { useSession } from "../lib/useSession";
 import { PhraseView, RecoverForm, UnlockForm } from "./KeyForms";
 import { NeedsKeyStatus } from "./SetupStatus";
@@ -79,6 +80,7 @@ function KeyDesk({ address }: { address: string }) {
         </Notice>
       )}
       <NeedsKeyStatus address={address} keys={keys} />
+      <PasskeyCard address={address} />
       <div className="row">
         <button className="btn ghost small" onClick={() => lockKeys(address)}>Lock now</button>
         <button className="btn ghost small" onClick={() => setMode("new")}>Start over with a new key</button>
@@ -126,6 +128,32 @@ function MakeKey({ address, replacing, onMade, onCancel }: { address: string; re
           {onCancel && <button type="button" className="btn ghost small" onClick={onCancel}>Cancel</button>}
         </div>
       </form>
+    </div>
+  );
+}
+
+/** Unlock with Face ID, a fingerprint or a security key instead of the password. */
+function PasskeyCard({ address }: { address: string }) {
+  const { busy, error, run } = useAction();
+  const [, rerender] = useState(0);
+  if (!passkeysAvailable()) return null;
+  const on = hasPasskey(address);
+  return (
+    <div className="card passkey-card">
+      <div>
+        <h3>{on ? "Passkey unlock is on" : "Unlock with a passkey"}</h3>
+        <p className="small muted">
+          {on
+            ? "This browser unlocks your key with your passkey. Your password and recovery phrase still work."
+            : "Use Face ID, a fingerprint, Windows Hello or a security key instead of typing your password. It stays in this browser; your password and recovery phrase keep working."}
+        </p>
+        {error && <Notice kind="bad">{error}</Notice>}
+      </div>
+      {on ? (
+        <button className="btn ghost small" onClick={() => { forgetPasskey(address); rerender((n) => n + 1); }}>Turn off</button>
+      ) : (
+        <button className="btn small" disabled={busy} onClick={() => run(async () => { await addPasskey(address); rerender((n) => n + 1); })}>{busy ? "Waiting for your passkey…" : "Set up a passkey"}</button>
+      )}
     </div>
   );
 }

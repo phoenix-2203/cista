@@ -4,12 +4,18 @@ import { estimate, MIN_SCORE } from "../lib/strength";
 import { PasswordMeter } from "../PasswordMeter";
 import { RECOVERY_WORDS, type Vault } from "@phoenix-2203/cista";
 import { Notice, useAction } from "../components";
-import { downloadVault, recoverKeys, unlockKeys } from "../lib/keys";
+import { downloadVault, hasPasskey, recoverKeys, unlockKeys, unlockKeysWithPasskey } from "../lib/keys";
 import { pickPositions, sameWord } from "../lib/phrasecheck";
 
 export function UnlockForm({ address, vault, onDone, onForgot }: { address: string; vault?: Vault | null; onDone: () => void; onForgot: () => void }) {
   const [password, setPassword] = useState("");
   const { busy, error, run } = useAction();
+  const passkey = hasPasskey(address);
+  const withPasskey = () =>
+    run(async () => {
+      await unlockKeysWithPasskey(address);
+      onDone();
+    });
   return (
     <form
       onSubmit={(e) => {
@@ -21,12 +27,18 @@ export function UnlockForm({ address, vault, onDone, onForgot }: { address: stri
       }}
     >
       {error && <Notice kind="bad">{error}</Notice>}
+      {passkey && (
+        <div className="passkey-unlock">
+          <button type="button" className="btn" disabled={busy} onClick={withPasskey}>{busy ? "Waiting for your passkey…" : "Unlock with passkey"}</button>
+          <span className="small muted">or type your password</span>
+        </div>
+      )}
       <div className="field">
         <label htmlFor="unlock-pw">Password</label>
-        <input id="unlock-pw" type="password" autoComplete="current-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input id="unlock-pw" type="password" autoComplete="current-password" autoFocus={!passkey} value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <div className="row">
-        <button className="btn" disabled={busy || !password}>{busy ? "Unlocking…" : "Unlock"}</button>
+        <button className={passkey ? "btn ghost" : "btn"} disabled={busy || !password}>{busy ? "Unlocking…" : "Unlock"}</button>
         <button type="button" className="btn ghost small" onClick={onForgot}>Forgot your password?</button>
       </div>
       <p className="small muted" style={{ marginTop: "0.7rem" }}>Stays unlocked in this tab until you close it, or after 30 minutes without use.</p>
