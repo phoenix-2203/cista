@@ -1,12 +1,11 @@
 import deployment from "@cista/contracts/deployments/testnet.json";
-import { short } from "../components";
+import { short } from "../lib/format";
 import {
   IconArrow, IconArrowUp, IconAtom, IconBank, IconBriefcase, IconBuilding, IconChain, IconEyeOff,
   IconKey, IconPay, IconPerson, IconProve, IconRange, IconReceipt, IconSeal, IconSign, IconSliders,
 } from "../icons";
-import { EXPLORER_TX } from "../lib/chain";
 import { PURPOSES } from "../lib/fields";
-import { EXPLORER_ADDRESS, VERIFIER } from "../lib/onchain";
+import { EXPLORER_ADDRESS, EXPLORER_TX, VERIFIER_ADDRESS as VERIFIER } from "../lib/links";
 import { Link } from "../lib/router";
 import { useRef } from "react";
 import { useReveal } from "../lib/reveal";
@@ -256,7 +255,7 @@ function Compare() {
       <h2>The privacy of paper, the proof of a chain.</h2>
       <div className="table-wrap compare">
         <table>
-          <thead><tr><th /><th>Payroll on a public chain</th><th>PDF payslips</th><th className="us">Cista</th></tr></thead>
+          <thead><tr><th><span className="sr-only">Feature</span></th><th>Payroll on a public chain</th><th>PDF payslips</th><th className="us">Cista</th></tr></thead>
           <tbody>{rows.map(([k, a, b, c]) => (<tr key={k}><td>{k}</td><td>{a}</td><td>{b}</td><td className="us">{c}</td></tr>))}</tbody>
         </table>
       </div>

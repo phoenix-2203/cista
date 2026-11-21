@@ -1,16 +1,20 @@
-import { short } from "./components";
-import { signOut } from "./lib/api";
+import { lazy, Suspense } from "react";
+import { short } from "./lib/format";
 import { Link, usePath } from "./lib/router";
 import { Wordmark } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 import { useSession } from "./lib/useSession";
-import { Employer } from "./pages/Employer";
 import { Home } from "./pages/Home";
-import { Payslips } from "./pages/Payslips";
-import { Setup } from "./pages/Setup";
-import { Verify } from "./pages/Verify";
 
-const PAGES: Record<string, () => React.ReactNode> = {
+// The app's pages carry the crypto and chain code; they load when first opened,
+// so the landing page stays light.
+const Employer = lazy(() => import("./pages/Employer").then((m) => ({ default: m.Employer })));
+const Payslips = lazy(() => import("./pages/Payslips").then((m) => ({ default: m.Payslips })));
+const Setup = lazy(() => import("./pages/Setup").then((m) => ({ default: m.Setup })));
+const Verify = lazy(() => import("./pages/Verify").then((m) => ({ default: m.Verify })));
+const signOut = () => import("./lib/api").then((m) => m.signOut());
+
+const PAGES: Record<string, React.ComponentType> = {
   "/": Home,
   "/employer": Employer,
   "/payslips": Payslips,
@@ -50,7 +54,9 @@ export function App() {
         )}
       </header>
       <main className="page">
-        <Page />
+        <Suspense fallback={<div className="card loading">Loading…</div>}>
+          <Page />
+        </Suspense>
       </main>
       <footer className="footer">
         <div className="about">
@@ -58,11 +64,11 @@ export function App() {
           <p>Sealed payroll on QoreChain. Everyone gets paid; only you can read your payslip.</p>
         </div>
         <nav aria-label="App">
-          <h4>App</h4>
+          <h2>App</h2>
           <ul>{NAV.map(([href, label]) => <li key={href}><Link href={href}>{label}</Link></li>)}</ul>
         </nav>
         <nav aria-label="Project">
-          <h4>Project</h4>
+          <h2>Project</h2>
           <ul>
             <li><a href="https://github.com/phoenix-2203/cista" target="_blank" rel="noreferrer">Source</a></li>
             <li><a href="https://github.com/phoenix-2203/cista/blob/main/audit.md" target="_blank" rel="noreferrer">Security audit</a></li>
@@ -70,7 +76,7 @@ export function App() {
           </ul>
         </nav>
         <nav aria-label="Network">
-          <h4>Network</h4>
+          <h2>Network</h2>
           <ul>
             <li><a href="https://build.qorechain.io/p/cista" target="_blank" rel="noreferrer">Build Before Q-Day</a></li>
             <li><a href="https://explore.qore.network/" target="_blank" rel="noreferrer">QoreChain explorer</a></li>
