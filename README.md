@@ -28,9 +28,10 @@ Work in progress for QoreChain's [Build Before Q-Day](https://build.qorechain.io
 | What | Where |
 | --- | --- |
 | A real pay run paid by QoreX with one `MsgMultiSend`, hybrid-signed (the chain reports `pqc_hybrid_verify … status=verified` for the employer), carrying the run root `aa1868d9…4ce1` in its memo | [`F205402C…7A6FDF`](https://explore.qore.network/tx/F205402C3F9EABF2E393F5D83B71EE1E016791516F3F3B8356D7E15E787A6FDF), block 10,442,970, 20 Nov 2026 |
+| A pay run paid in **fUSD** by QoreX with one `MsgMultiSend` of the native denom `erc20:0x9714…63CA` (10 fUSD), hybrid-signed by the employer, run root `47f10efc…649f` in its memo | [`A3978B6A…780DA5`](https://explore.qore.network/tx/A3978B6A03093FCBF862B3EC8538DFC4E799A7387E74F66C4140B769C6780DA5), block 10,502,279, 21 Nov 2026 |
 | The employee opened the sealed payslip in the browser, made a proof of pay (employer, period, net pay) for "Test Bank", and the check page passed all five checks with no wallet | https://cista.duckdns.org/verify |
 
-That first run paid in QOR. Pay runs now pay in fUSD (see "Money" below).
+The first run paid in QOR; pay runs now pay in fUSD (see "Money" below). A proof of employment from the fUSD run ("Employed by … since …, and on the payroll for 2026-11", made for a loan) also passed every check.
 
 ## How it works
 
