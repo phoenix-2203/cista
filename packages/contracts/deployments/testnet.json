@@ -1,0 +1,11 @@
+{
+  "chainId": "qorechain-diana",
+  "evmChainId": 9800,
+  "CistaVerifier": "0xF26924d19029d1F1A253a3e079b16fD68B8519d8",
+  "deployTx": "0xbbde15932d1c82cde5cc4587252311f71c094676154a6f483ead3b6ce9ca49b2",
+  "window": "75FFFB92826CD8FCEFC9CAC4F3B7212E076158A59929EA110C325E077C46215F",
+  "block": 10503663,
+  "deployer": "qor1w3yt7jnev05p4d8e8vgczkdfrd72mxezajpegh",
+  "checkedAgainstRun": "47f10efc4f5681edd55c8ff478490dacee73dbf3d16e57b218d635188f4d649f",
+  "verifyRunGas": 333239
+}
