@@ -14,6 +14,7 @@
 Cista runs payroll on QoreChain. Payslips are sealed with ML-KEM-1024 in the employer's browser before they go anywhere. One hybrid-signed transaction pays the whole team in fUSD. And an employee can prove one fact about their pay (who employs them, that they earn at least $2,500 a month, that they earn between $2,500 and $3,000) to anyone who needs it, without handing over the payslip. They check it with no wallet, and a contract can check it on chain.
 
 - **Try it:** https://cista.duckdns.org (QoreChain testnet; sign in with the QoreX browser extension)
+- **Watch:** the demo video (2:55): https://youtu.be/KkEktrQ4Fx4
 - **Built for:** [Build Before Q-Day](https://build.qorechain.io), the **Encrypted Apps** track
 - **Proven on testnet:** real pay runs, a contract checking the employer's real QoreX signature on chain, and a Q-Day drill with 8 of 8 attacks refused. See [Proven on testnet](#proven-on-testnet) and [audit.md](audit.md).
 
